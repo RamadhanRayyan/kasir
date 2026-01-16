@@ -1,0 +1,7 @@
+{
+  "name": "POSKoe - Koperasi POS System",
+  "description": "A comprehensive Point of Sale system for Cooperatives (Koperasi) featuring inventory management, sales tracking, automated reports, and AI-powered business insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
