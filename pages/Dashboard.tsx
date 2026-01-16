@@ -87,23 +87,23 @@ const Dashboard: React.FC<DashboardProps> = ({ products, transactions, lowStock 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Chart Area */}
         <div className="xl:col-span-2 bg-white p-5 lg:p-7 rounded-[32px] shadow-sm border border-slate-100 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Tren Penjualan Mingguan</h3>
-            <div className="flex gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase">Pendapatan</div>
+          <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 mb-6 sm:mb-8">
+            <h3 className="font-black text-slate-800 uppercase tracking-wider text-[11px] sm:text-xs">Tren Penjualan Mingguan</h3>
+            <div className="flex">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] sm:text-[10px] font-black uppercase">Pendapatan</div>
             </div>
           </div>
-          <div className="h-64 lg:h-80 w-full">
+          <div className="h-56 xs:h-64 sm:h-72 lg:h-80 w-full font-mono">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}} tickFormatter={(val) => `${val/1000}k`} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} tickFormatter={(val) => `${val/1000}k`} />
                 <Tooltip 
                   cursor={{fill: '#f8fafc', radius: 10}} 
-                  contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '11px', padding: '12px'}}
+                  contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '10px', padding: '12px'}}
                 />
-                <Bar dataKey="sales" radius={[8, 8, 8, 8]} barSize={24}>
+                <Bar dataKey="sales" radius={[6, 6, 6, 6]} barSize={window.innerWidth < 640 ? 16 : 24}>
                   {stats.dailyData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={index === stats.dailyData.length - 1 ? '#059669' : '#10b981'} />
                   ))}

@@ -208,34 +208,36 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
     <div className="h-full flex flex-col lg:flex-row gap-4 lg:gap-8 relative max-w-[1800px] mx-auto">
       {/* Product List Section & Cart - Hide on Print */}
       <div className="contents">
-          <div className="flex-1 flex flex-col gap-5 overflow-hidden">
+          <div className="flex-1 flex flex-col gap-4 lg:gap-5 overflow-hidden">
             {/* Responsive Filter Header */}
-            <div className="bg-white p-3 lg:p-4 rounded-3xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-sm shadow-slate-100/50 shrink-0">
+            <div className="bg-white p-3 sm:p-4 rounded-[2rem] sm:rounded-3xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-sm shadow-slate-100/50 shrink-0">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="text" 
                   placeholder="Cari Produk..." 
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold transition-all"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none text-[13px] font-semibold transition-all"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <div className="flex gap-2">
                 <select 
-                  className="flex-1 md:flex-none px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-black text-slate-600 uppercase tracking-widest cursor-pointer"
+                  className="flex-1 md:flex-none px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer"
                   value={activeCategory}
                   onChange={(e) => setActiveCategory(e.target.value as any)}
                 >
-                  <option value="All">Kategori</option>
+                  <option value="All">Semua Kategori</option>
                   {Object.values(Category).map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
-                <button className="md:hidden p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100"><LayoutGrid size={20} /></button>
+                <div className="hidden sm:block">
+                   <button className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100"><LayoutGrid size={20} /></button>
+                </div>
               </div>
             </div>
 
-            {/* Product Grid - Fixed "Kepanjangan" issue by using better alignment and height constraints */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-28 lg:pb-6 pr-1 items-start content-start">
+            {/* Product Grid */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 pb-32 lg:pb-6 pr-1 items-start content-start">
               {filteredProducts.map(product => (
                 <button 
                   key={product.id}

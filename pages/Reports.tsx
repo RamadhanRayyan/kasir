@@ -236,24 +236,24 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Analitik & Laporan</h1>
-          <p className="text-slate-500">Analisa performa bisnis Koperasi Anda secara mendalam.</p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="text-center md:text-left">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Analitik & Laporan</h1>
+          <p className="text-sm text-slate-500 mt-1">Analisa performa bisnis Koperasi Anda secara mendalam.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-3">
           <select 
-            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500"
+            className="w-full sm:w-auto px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-emerald-500 outline-none"
             value={reportPeriod}
             onChange={(e) => setReportPeriod(e.target.value as any)}
           >
-            <option value="Daily">Hari Ini</option>
-            <option value="Weekly">Minggu Ini</option>
-            <option value="Monthly">Bulan Ini</option>
-            <option value="Yearly">Tahunan</option>
+            <option value="Daily">📊 Hari Ini</option>
+            <option value="Weekly">📊 Minggu Ini</option>
+            <option value="Monthly">📊 Bulan Ini</option>
+            <option value="Yearly">📊 Tahunan</option>
           </select>
-          <button onClick={handleExportPDF} className="flex-1 sm:flex-none flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 active:scale-95 transition-all shadow-lg shadow-emerald-200">
-            <Download size={16} />
+          <button onClick={handleExportPDF} className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 active:scale-95 transition-all shadow-xl shadow-emerald-200">
+            <Download size={18} />
             Ekspor PDF
           </button>
         </div>
