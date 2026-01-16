@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

@@ -14,7 +14,7 @@ import { INITIAL_PRODUCTS, INITIAL_ACCOUNTS } from './constants';
 
 import { supabase } from './lib/supabaseClient';
 
-const RequireAuth = ({ children }: { children: JSX.Element }) => {
+const RequireAuth = ({ children }: { children: React.ReactElement }) => {
   const [session, setSession] = useState<boolean | null>(null);
   const location = useLocation();
 
@@ -44,48 +44,71 @@ const RequireAuth = ({ children }: { children: JSX.Element }) => {
 };
 
 const App: React.FC = () => {
-  const [accounts, setAccounts] = useState<CooperativeAccount[]>(() => {
-    const saved = localStorage.getItem('poskoe_accounts');
-    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
-  });
+  const [accounts, setAccounts] = useState<CooperativeAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeAccountId, setActiveAccountId] = useState<string>(() => {
-    return localStorage.getItem('poskoe_active_account_id') || INITIAL_ACCOUNTS[0].id;
-  });
+  // 1. Fetch Accounts (Branches) on Mount
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      const { data, error } = await supabase.from('accounts').select('*').order('created_at', { ascending: true });
+      
+      if (data && data.length > 0) {
+        setAccounts(data);
+        // Load active account from local storage or default to first
+        const savedId = localStorage.getItem('poskoe_active_account_id');
+        if (savedId && data.find(a => a.id === savedId)) {
+            setActiveAccountId(savedId);
+        } else {
+            setActiveAccountId(data[0].id);
+        }
+      } else {
+        // Init default account if none exists (First Run)
+        const defaultAccount = { name: 'Koperasi Pusat', address: 'Pusat', phone: '-' };
+        const { data: newData } = await supabase.from('accounts').insert([defaultAccount]).select().single();
+        if (newData) {
+            setAccounts([newData]);
+            setActiveAccountId(newData.id);
+        }
+      }
+      setIsLoading(false);
+    };
+    
+    fetchAccounts();
+  }, []);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   
+  // Persist Active Account Change
   useEffect(() => {
-    localStorage.setItem('poskoe_accounts', JSON.stringify(accounts));
-  }, [accounts]);
-
-  useEffect(() => {
-    localStorage.setItem('poskoe_active_account_id', activeAccountId);
+    if (activeAccountId) {
+        localStorage.setItem('poskoe_active_account_id', activeAccountId);
+    }
   }, [activeAccountId]);
 
+  // 2. Fetch Products filtered by Active Branch
   useEffect(() => {
-    localStorage.setItem('poskoe_accounts', JSON.stringify(accounts));
-  }, [accounts]);
+    if (!activeAccountId) return;
+    
+    let isActive = true;
 
-  useEffect(() => {
-    localStorage.setItem('poskoe_active_account_id', activeAccountId);
-  }, [activeAccountId]);
-
-  // Fetch Products from Supabase on Mount or Account Change
-  useEffect(() => {
+    // CLEAR STATE immediately to prevent showing old branch data during loading
+    setProducts([]); 
+    
     const fetchProducts = async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*');
+        .select('*')
+        .eq('branch_id', activeAccountId); // Filter by Branch
       
       if (error) {
         console.error('Error fetching products:', error);
       } else if (data) {
-        // Map data to match Product interface if needed (e.g. snake_case to camelCase)
-        // Schema: min_stock -> Product: minStock
+        // Map keys matches DB columns
         const mappedProducts: Product[] = data.map((p: any) => ({
           ...p,
+          branch_id: p.branch_id, // include branch_id
           minStock: p.min_stock
         }));
         setProducts(mappedProducts);
@@ -94,23 +117,33 @@ const App: React.FC = () => {
     
     fetchProducts();
     
-    // Subscribe to changes for realtime updates
+    // Subscribe to changes for this branch
     const channel = supabase
-    .channel('public:products')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
-        fetchProducts(); // Simple re-fetch on change
+    .channel(`public:products:branch_${activeAccountId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `branch_id=eq.${activeAccountId}` }, (payload) => {
+        if (isActive) fetchProducts();
     })
     .subscribe();
     
     return () => {
+      isActive = false;
       supabase.removeChannel(channel);
     }
   }, [activeAccountId]);
 
 
-  // Fetch Transactions
+  // 3. Fetch Transactions filtered by Active Branch
   useEffect(() => {
+     if (!activeAccountId) return;
+
+     let isActive = true;
+
+     // CLEAR STATE immediately
+     setTransactions([]);
+     
      const fetchTransactions = async () => {
+      if (!isActive) return;
+
       const { data, error } = await supabase
          .from('transactions')
         .select(`
@@ -120,13 +153,17 @@ const App: React.FC = () => {
             product:products(name, category, min_stock, stock)
           )
         `)
+        .eq('branch_id', activeAccountId) // Filter by Branch
         .order('date', { ascending: false });
+
+      if (!isActive) return;
 
       if (error) {
         console.error('Error fetching transactions:', error);
       } else if (data) {
         const mappedTransactions: Transaction[] = data.map((t: any) => ({
           id: t.id,
+          branch_id: t.branch_id, // include branch_id
           date: t.date,
           total: t.total,
           paymentMethod: t.payment_method,
@@ -135,7 +172,6 @@ const App: React.FC = () => {
              quantity: i.quantity,
              price: i.price_at_sale,
              cost: i.cost_at_sale,
-             // Map from joined product data
              name: i.product?.name || 'Unknown Product',
              category: i.product?.category || 'Uncategorized',
              stock: i.product?.stock || 0,
@@ -147,18 +183,24 @@ const App: React.FC = () => {
       }
     };
     
-    // run only if we have products? No, independent.
     fetchTransactions();
-  }, [activeAccountId]); // re-fetch on account change
+
+    return () => {
+        isActive = false;
+    }
+  }, [activeAccountId]);
 
   const addTransaction = async (transaction: Transaction) => {
-    // 1. Insert Transaction
+    if (!activeAccountId) return;
+
+    // 1. Insert Transaction with branch_id
     const { data: transData, error: transError } = await supabase
       .from('transactions')
       .insert([{
+        branch_id: activeAccountId, // Tag with Branch
         total: transaction.total,
         payment_method: transaction.paymentMethod,
-        date: transaction.date, // ensure ISO string
+        date: transaction.date,
         profile_id: (await supabase.auth.getUser()).data.user?.id
       }])
       .select()
@@ -186,7 +228,7 @@ const App: React.FC = () => {
       console.error('Failed to save items', itemsError);
     }
 
-    // 3. Update Stock (One by one for now)
+    // 3. Update Stock (One by one)
     for (const item of transaction.items) {
       const currentProduct = products.find(p => p.id === item.id);
       if (currentProduct) {
@@ -198,8 +240,7 @@ const App: React.FC = () => {
       }
     }
     
-    // 4. Update Local State (Optimistic or Refetch)
-    // We rely on realtime subscription or just manual update
+    // 4. Optimistic Update
     setTransactions(prev => [transaction, ...prev]);
     setProducts(prev => prev.map(p => {
       const soldItem = transaction.items.find(item => item.id === p.id);
@@ -209,12 +250,21 @@ const App: React.FC = () => {
   };
 
   const activeAccount = useMemo(() => {
-    return accounts.find(a => a.id === activeAccountId) || accounts[0];
+    return accounts.find(a => a.id === activeAccountId) || accounts[0] || { name: '', address: '', phone: '', id: '' };
   }, [accounts, activeAccountId]);
 
   const lowStockProducts = useMemo(() => {
     return products.filter(p => p.stock <= p.minStock);
   }, [products]);
+
+  if (isLoading) {
+    return <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-medium animate-pulse">Memuat aplikasi...</p>
+      </div>
+    </div>;
+  }
 
   return (
     <HashRouter>
@@ -231,7 +281,7 @@ const App: React.FC = () => {
         }>
           <Route path="/" element={<Dashboard products={products} transactions={transactions} lowStock={lowStockProducts} />} />
           <Route path="/pos" element={<POS products={products} onCompleteTransaction={addTransaction} activeAccount={activeAccount} />} />
-          <Route path="/inventory" element={<Inventory products={products} setProducts={setProducts} />} />
+          <Route path="/inventory" element={<Inventory products={products} setProducts={setProducts} activeAccountId={activeAccountId} activeAccountName={activeAccount.name} />} />
           <Route path="/reports" element={<Reports transactions={transactions} products={products} />} />
           <Route path="/history" element={<HistoryPage transactions={transactions} />} />
           <Route path="/settings" element={<SettingsPage accounts={accounts} activeAccountId={activeAccountId} setActiveAccountId={setActiveAccountId} setAccounts={setAccounts} />} />

@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
-import { Building2, Save, Plus, Trash2, Check, RefreshCw } from 'lucide-react';
+import { Building2, Save, Plus, Trash2, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import { CooperativeAccount } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 interface SettingsProps {
   accounts: CooperativeAccount[];
@@ -13,82 +13,202 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiveAccountId, setAccounts }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<CooperativeAccount>>({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Security Verification State
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [securityAction, setSecurityAction] = useState<{ type: 'SWITCH_BRANCH' | 'RESET_DATA' | 'ADD_BRANCH', id?: string } | null>(null);
+  const ADMIN_PASSWORD = 'nurussunnah2026';
+
+  const handleSecurityCheck = (type: 'SWITCH_BRANCH' | 'RESET_DATA' | 'ADD_BRANCH', id?: string) => {
+    setSecurityAction({ type, id });
+    setIsSecurityModalOpen(true);
+  };
+
+  const verifyPassword = () => {
+    if (passwordInput === ADMIN_PASSWORD) {
+      if (securityAction?.type === 'SWITCH_BRANCH' && securityAction.id) {
+        setActiveAccountId(securityAction.id);
+      } else if (securityAction?.type === 'RESET_DATA') {
+        handleResetData();
+      } else if (securityAction?.type === 'ADD_BRANCH') {
+        addNewAccount();
+      }
+      setIsSecurityModalOpen(false);
+      setPasswordInput('');
+      setSecurityAction(null);
+    } else {
+      alert('Password salah!');
+    }
+  };
+
+  const handleResetData = async () => {
+    if (!confirm("Peringatan Terakhir: Semua data produk dan transaksi di cabang ini akan dihapus secara permanen. Lanjutkan?")) return;
+    
+    setIsLoading(true);
+    try {
+        const { error: prodError } = await supabase.from('products').delete().eq('branch_id', activeAccountId);
+        if (prodError) throw prodError;
+        
+        const { error: transError } = await supabase.from('transactions').delete().eq('branch_id', activeAccountId);
+        if (transError) throw transError;
+
+        alert("Data cabang berhasil direset!");
+        window.location.reload();
+    } catch (error: any) {
+        alert("Gagal reset data: " + error.message);
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   const startEditing = (account: CooperativeAccount) => {
     setEditingId(account.id);
     setFormData(account);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingId) return;
-    const newAccounts = accounts.map(a => a.id === editingId ? { ...a, ...formData } as CooperativeAccount : a);
-    setAccounts(newAccounts);
-    setEditingId(null);
+    setIsLoading(true);
+    try {
+        const { error } = await supabase
+            .from('accounts')
+            .update({
+                name: formData.name,
+                address: formData.address,
+                phone: formData.phone
+            })
+            .eq('id', editingId);
+
+        if (error) throw error;
+
+        const newAccounts = accounts.map(a => a.id === editingId ? { ...a, ...formData } as CooperativeAccount : a);
+        setAccounts(newAccounts);
+        setEditingId(null);
+    } catch (error: any) {
+        alert('Gagal menyimpan perubahan: ' + error.message);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
-  const addNewAccount = () => {
-    const newAccount: CooperativeAccount = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: 'Cabang Baru',
-      address: 'Alamat Cabang',
-      phone: '021-xxxxxx'
-    };
-    setAccounts([...accounts, newAccount]);
-    startEditing(newAccount);
+  const addNewAccount = async () => {
+    setIsLoading(true);
+    try {
+        const newBranch = {
+            name: 'Cabang Baru',
+            address: 'Alamat Belum Diisi',
+            phone: '-'
+        };
+        
+        const { data, error } = await supabase
+            .from('accounts')
+            .insert([newBranch])
+            .select()
+            .single();
+
+        if (error) throw error;
+        if (data) {
+             setAccounts([...accounts, data]);
+             startEditing(data);
+        }
+    } catch (error: any) {
+        alert('Gagal menambah cabang: ' + error.message);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+  
+  const deleteAccount = async (id: string) => {
+      if (id === activeAccountId) {
+          alert("Tidak bisa menghapus cabang yang sedang aktif!");
+          return;
+      }
+      if (!confirm("Apakah Anda yakin ingin menghapus cabang ini? Semua data produk dan transaksi di cabang ini akan ikut terhapus!")) return;
+
+      setIsLoading(true);
+      try {
+          const { error } = await supabase.from('accounts').delete().eq('id', id);
+          if (error) throw error;
+          setAccounts(accounts.filter(a => a.id !== id));
+      } catch (error: any) {
+          alert('Gagal menghapus cabang: ' + error.message);
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-20">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Pengaturan Sistem</h1>
-        <p className="text-slate-500">Kelola identitas koperasi dan konfigurasi aplikasi.</p>
+        <h1 className="text-2xl font-bold text-slate-900">Pengaturan Cabang</h1>
+        <p className="text-slate-500">Kelola daftar cabang koperasi Anda. Setiap cabang memiliki data produk dan transaksi yang terpisah.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
-          <h3 className="font-bold text-slate-800 mb-2">Akun Koperasi</h3>
-          <p className="text-sm text-slate-500">Pilih akun yang sedang aktif atau tambahkan cabang baru jika Koperasi Anda memiliki lebih dari satu lokasi.</p>
+          <h3 className="font-bold text-slate-800 mb-2">Daftar Cabang</h3>
+          <p className="text-sm text-slate-500">
+             Gunakan tombol "Gunakan Akun" untuk berpindah antar cabang. Data yang tampil di menu lain akan menyesuaikan dengan cabang yang dipilih.
+          </p>
         </div>
 
         <div className="md:col-span-2 space-y-4">
+          {isLoading && <div className="text-center text-sm text-emerald-600 animate-pulse">Memproses data...</div>}
+          
           {accounts.map(account => (
             <div 
               key={account.id} 
               className={`p-5 rounded-2xl border transition-all ${
                 activeAccountId === account.id 
-                  ? 'bg-emerald-50 border-emerald-500 shadow-sm shadow-emerald-100' 
-                  : 'bg-white border-slate-200'
+                  ? 'bg-emerald-50 border-emerald-500 shadow-lg shadow-emerald-100/50' 
+                  : 'bg-white border-slate-200 hover:border-emerald-200'
               }`}
             >
               {editingId === account.id ? (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase">Nama Koperasi</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase">Nama Cabang</label>
                     <input 
                       type="text" 
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800"
                       value={formData.name}
                       onChange={e => setFormData({...formData, name: e.target.value})}
+                      autoFocus
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Telepon</label>
+                        <input 
+                        type="text" 
+                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                        value={formData.phone}
+                        onChange={e => setFormData({...formData, phone: e.target.value})}
+                        />
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-400 uppercase">Alamat</label>
                     <textarea 
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none resize-none h-20"
                       value={formData.address}
                       onChange={e => setFormData({...formData, address: e.target.value})}
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-2">
                     <button 
                       onClick={handleSave}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm"
+                      disabled={isLoading}
+                      className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50"
                     >
-                      <Save size={16} /> Simpan
+                      {isLoading ? <Loader2 size={16} className="animate-spin"/> : <Save size={16} />} Simpan
                     </button>
                     <button 
                       onClick={() => setEditingId(null)}
-                      className="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm"
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors"
                     >
                       Batal
                     </button>
@@ -97,31 +217,40 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
               ) : (
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                      activeAccountId === account.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                      activeAccountId === account.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' : 'bg-slate-100 text-slate-400'
                     }`}>
                       <Building2 size={24} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-800">{account.name}</h4>
-                      <p className="text-sm text-slate-500">{account.address}</p>
-                      <p className="text-xs text-slate-400 mt-1">{account.phone}</p>
+                      <h4 className="font-bold text-slate-800 text-lg">{account.name}</h4>
+                      <p className="text-sm text-slate-500 leading-snug max-w-xs">{account.address}</p>
+                      <p className="text-xs font-bold text-emerald-600 mt-1">{account.phone}</p>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 items-end">
                     {activeAccountId !== account.id ? (
-                      <button 
-                        onClick={() => setActiveAccountId(account.id)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200"
-                      >
-                        <Check size={14} /> Gunakan Akun
-                      </button>
+                      <div className="flex gap-2">
+                          <button 
+                            onClick={() => deleteAccount(account.id)}
+                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Hapus Cabang"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleSecurityCheck('SWITCH_BRANCH', account.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
+                          >
+                            <Check size={14} /> Pilih
+                          </button>
+                      </div>
                     ) : (
-                      <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded text-center">Aktif</span>
+                      <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full text-center tracking-widest border border-emerald-200">Sedang Aktif</span>
                     )}
                     <button 
                       onClick={() => startEditing(account)}
-                      className="text-slate-400 hover:text-emerald-600 text-xs font-medium text-center"
+                      className="text-slate-400 hover:text-emerald-600 text-xs font-bold underline decoration-slate-300 hover:decoration-emerald-500 underline-offset-4 transition-all px-2"
                     >
                       Edit Info
                     </button>
@@ -132,10 +261,13 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
           ))}
 
           <button 
-            onClick={addNewAccount}
-            className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:text-emerald-600 hover:border-emerald-300 transition-all"
+            onClick={() => handleSecurityCheck('ADD_BRANCH')}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 p-5 border-2 border-dashed border-slate-300 rounded-3xl text-slate-400 hover:text-emerald-600 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all group font-bold"
           >
-            <Plus size={20} />
+            <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-500 flex items-center justify-center transition-colors">
+                <Plus size={18} />
+            </div>
             Tambah Cabang Baru
           </button>
         </div>
@@ -143,30 +275,78 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
 
       <div className="pt-8 border-t border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-1">
-          <h3 className="font-bold text-slate-800 mb-2">Pemeliharaan Data</h3>
-          <p className="text-sm text-slate-500">Opsi untuk mengosongkan data atau sinkronisasi ulang.</p>
+          <h3 className="font-bold text-slate-800 mb-2">Zona Bahaya & Sinkronisasi</h3>
+          <p className="text-sm text-slate-500">Hati-hati, tindakan di sini tidak dapat dibatalkan.</p>
         </div>
         <div className="md:col-span-2 space-y-4">
           <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-between">
-            <div>
-              <p className="font-bold text-red-800">Reset Seluruh Data</p>
-              <p className="text-sm text-red-600">Menghapus semua produk dan riwayat transaksi secara permanen.</p>
+            <div className="flex gap-4">
+               <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center shrink-0">
+                  <AlertTriangle size={20} />
+               </div>
+                <div>
+                <p className="font-bold text-red-900">Reset Data Cabang Ini</p>
+                <p className="text-xs text-red-700/80 mt-1 max-w-sm">Menghapus SELURUH produk dan transaksi hanya pada cabang <strong>{accounts.find(a => a.id === activeAccountId)?.name}</strong>.</p>
+                </div>
             </div>
-            <button className="px-4 py-2 bg-red-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-200">
+            <button 
+              onClick={() => handleSecurityCheck('RESET_DATA')}
+              className="px-4 py-2 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-200 hover:bg-red-700 active:scale-95 transition-all">
               Reset Data
             </button>
           </div>
-          <div className="p-6 bg-white border border-slate-200 rounded-2xl flex items-center justify-between">
-            <div>
-              <p className="font-bold text-slate-800">Sinkronisasi Awan</p>
-              <p className="text-sm text-slate-500">Sinkronkan data dengan server pusat koperasi.</p>
-            </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl font-bold text-sm">
-              <RefreshCw size={16} /> Mulai
-            </button>
+          
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center">
+             <p className="text-xs text-slate-400">
+                System ID: <span className="font-mono text-slate-600">{activeAccountId}</span>
+             </p>
           </div>
         </div>
       </div>
+
+      {isSecurityModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-2">
+                <Check size={32} />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Verifikasi Keamanan</h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Anda mencoba melakukan tindakan sensitif. <br/>
+                Silakan masukkan kata sandi administrator untuk melanjutkan.
+              </p>
+              
+              <div className="w-full space-y-4 mt-4">
+                <input 
+                  type="password"
+                  placeholder="Kata Sandi"
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-mono text-center tracking-widest"
+                  value={passwordInput}
+                  onChange={e => setPasswordInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && verifyPassword()}
+                  autoFocus
+                />
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => { setIsSecurityModalOpen(false); setPasswordInput(''); }}
+                    className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={verifyPassword}
+                    className="flex-1 px-6 py-4 bg-emerald-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all"
+                  >
+                    Konfirmasi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

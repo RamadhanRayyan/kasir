@@ -16,6 +16,7 @@ export interface CooperativeAccount {
 
 export interface Product {
   id: string;
+  branch_id?: string;
   name: string;
   category: Category;
   price: number;
@@ -30,6 +31,7 @@ export interface CartItem extends Product {
 
 export interface Transaction {
   id: string;
+  branch_id?: string;
   items: CartItem[];
   total: number;
   paymentMethod: 'Cash';

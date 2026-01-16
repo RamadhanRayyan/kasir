@@ -110,7 +110,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
             </button>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100 max-w-[200px] lg:max-w-[350px]">
               <MapPin size={14} className="text-emerald-600 shrink-0" />
-              <span className="text-[11px] font-bold text-emerald-800 truncate">{activeAccount.name}</span>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-emerald-500 uppercase leading-none">Lokasi Aktif</span>
+                <span className="text-xs font-bold text-emerald-900 truncate">{activeAccount.name}</span>
+              </div>
             </div>
           </div>
 

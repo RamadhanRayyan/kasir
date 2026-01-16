@@ -8,10 +8,11 @@ import { supabase } from '../lib/supabaseClient';
 interface InventoryProps {
   products: Product[];
   setProducts: (products: Product[]) => void;
+  activeAccountId: string;
+  activeAccountName?: string;
 }
 
-
-const Inventory: React.FC<InventoryProps> = ({ products, setProducts }) => {
+const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAccountId, activeAccountName }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,34 +23,25 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts }) => {
   const [filterCategory, setFilterCategory] = useState<Category | 'All'>('All');
   const [filterRestock, setFilterRestock] = useState(false);
 
-  // Fetch products on mount (though App.tsx might be handling it, we should probably move fetching here or specific hooks, 
-  // but for now we follow the pattern passed via props. 
-  // However, the prompt asked to migrate features. If I modify this file to fetch, I should update App.tsx to NOT pass products maybe?
-  // Let's stick to using the props if they are passed from App.tsx, BUT App.tsx needs to be updated to fetch from Supabase.
-  // Wait, if I change App.tsx to fetch from Supabase, then "Inventory" just receives them.
-  // But "Add Product" happens HERE. So I need to update "handleAddProduct".
-  
-  // Actually, the best approach is to let App.tsx handle the global state if many components share it (like POS), 
-  // OR move state to React Query / SWR. 
-  // Given the current structure, App.tsx holds the state. So I should probably update App.tsx to fetch data, 
-  // and update Inventory.tsx to call a function passed from App.tsx (or update App.tsx to pass a "refresh" function).
-  // BUT the instruction is "Migrate Inventory". I will allow Inventory to mutate data directly to Supabase, 
-  // and then maybe trigger a refresh.
-  // Let's import supabase here.
-  
-
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'All' || p.category === filterCategory;
     const matchesRestock = !filterRestock || p.stock <= p.minStock;
-    return matchesSearch && matchesCategory && matchesRestock;
+    // Strict Double-Check: Ensure product belongs to active branch
+    // This protects against any 'ghost' data from previous states
+    const matchesBranch = p.branch_id === activeAccountId; 
+    
+    return matchesSearch && matchesCategory && matchesRestock && matchesBranch;
   });
 
   const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeAccountId) return; 
+
     setIsLoading(true);
 
     const productPayload = {
+      branch_id: activeAccountId, // Tag New Product with Active Branch
       name: formData.name || 'Produk Baru',
       category: formData.category as Category,
       price: Number(formData.price),
@@ -128,8 +120,8 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts }) => {
     <div className="space-y-4 lg:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Stok Barang</h1>
-          <p className="text-xs lg:text-sm text-slate-500">Kelola ketersediaan barang koperasi.</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-slate-900">Stok Barang {activeAccountName && <span className="text-emerald-600">- {activeAccountName}</span>}</h1>
+          <p className="text-xs lg:text-sm text-slate-500">Kelola ketersediaan barang koperasi di cabang ini.</p>
         </div>
         <button onClick={() => { resetForm(); setIsAddModalOpen(true); }} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg text-sm">
           <Plus size={20} /> Tambah Barang
