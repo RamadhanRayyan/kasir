@@ -1,4 +1,9 @@
 
+export enum UserRole {
+  SUPER_ADMIN = 'super_admin',
+  KASIR = 'kasir'
+}
+
 export enum Category {
   MAKANAN = 'Makanan',
   MINUMAN = 'Minuman',
@@ -17,6 +22,7 @@ export interface CooperativeAccount {
 export interface Product {
   id: string;
   branch_id?: string;
+  sku?: string;
   name: string;
   category: Category;
   price: number;

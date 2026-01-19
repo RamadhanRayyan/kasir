@@ -9,28 +9,42 @@ import HistoryPage from './pages/History';
 import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import MainLayout from './layouts/MainLayout';
-import { Product, Transaction, CooperativeAccount } from './types';
+import KasirLayout from './layouts/KasirLayout';
+import { Product, Transaction, CooperativeAccount, UserRole } from './types';
 import { INITIAL_PRODUCTS, INITIAL_ACCOUNTS } from './constants';
 
 import { supabase } from './lib/supabaseClient';
 
-const RequireAuth = ({ children }: { children: React.ReactElement }) => {
+const RequireAuth = ({ children, onAuthFetch }: { children: React.ReactElement, onAuthFetch: (role: UserRole, branchId?: string) => void }) => {
   const [session, setSession] = useState<boolean | null>(null);
   const location = useLocation();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(!!session);
-    });
+      if (session?.user) {
+        const role = session.user.user_metadata?.role as UserRole || UserRole.SUPER_ADMIN; 
+        const branchId = session.user.user_metadata?.branch_id;
+        onAuthFetch(role, branchId);
+      }
+    };
+
+    checkSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(!!session);
+      if (session?.user) {
+        const role = session.user.user_metadata?.role as UserRole || UserRole.SUPER_ADMIN;
+        const branchId = session.user.user_metadata?.branch_id;
+        onAuthFetch(role, branchId);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [onAuthFetch]);
 
   if (session === null) {
     return <div className="h-screen w-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -47,6 +61,8 @@ const App: React.FC = () => {
   const [accounts, setAccounts] = useState<CooperativeAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.SUPER_ADMIN);
+  const [metadataBranchId, setMetadataBranchId] = useState<string | undefined>();
 
   // 1. Fetch Accounts (Branches) on Mount
   useEffect(() => {
@@ -55,12 +71,17 @@ const App: React.FC = () => {
       
       if (data && data.length > 0) {
         setAccounts(data);
-        // Load active account from local storage or default to first
-        const savedId = localStorage.getItem('poskoe_active_account_id');
-        if (savedId && data.find(a => a.id === savedId)) {
-            setActiveAccountId(savedId);
+        
+        // Priority: Metadata > Local Storage > First item
+        if (metadataBranchId && data.find(a => a.id === metadataBranchId)) {
+            setActiveAccountId(metadataBranchId);
         } else {
-            setActiveAccountId(data[0].id);
+            const savedId = localStorage.getItem('poskoe_active_account_id');
+            if (savedId && data.find(a => a.id === savedId)) {
+                setActiveAccountId(savedId);
+            } else if (data.length > 0) {
+                setActiveAccountId(data[0].id);
+            }
         }
       } else {
         // Init default account if none exists (First Run)
@@ -75,7 +96,18 @@ const App: React.FC = () => {
     };
     
     fetchAccounts();
-  }, []);
+  }, [metadataBranchId]);
+
+  // 1b. Reactive Branch Selection (Crucial for login redirect)
+  useEffect(() => {
+    if (metadataBranchId && accounts.length > 0) {
+      const targetAccount = accounts.find(a => a.id === metadataBranchId);
+      if (targetAccount) {
+        console.log('Reactively switching to branch from metadata:', targetAccount.name);
+        setActiveAccountId(metadataBranchId);
+      }
+    }
+  }, [metadataBranchId, accounts]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -104,11 +136,12 @@ const App: React.FC = () => {
       
       if (error) {
         console.error('Error fetching products:', error);
-      } else if (data) {
+      } else if (data && isActive) {
         // Map keys matches DB columns
         const mappedProducts: Product[] = data.map((p: any) => ({
           ...p,
           branch_id: p.branch_id, // include branch_id
+          sku: p.sku, // include SKU
           minStock: p.min_stock
         }));
         setProducts(mappedProducts);
@@ -119,11 +152,47 @@ const App: React.FC = () => {
     
     // Subscribe to changes for this branch
     const channel = supabase
-    .channel(`public:products:branch_${activeAccountId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `branch_id=eq.${activeAccountId}` }, (payload) => {
-        if (isActive) fetchProducts();
-    })
-    .subscribe();
+      .channel(`products_realtime`)
+      .on(
+        'postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'products'
+        }, 
+        (payload) => {
+          if (isActive) {
+            console.log('Product change received:', payload);
+            const p = payload.new as any || payload.old as any;
+            
+            // Branch filtering
+            if (p && (p.branch_id === activeAccountId)) {
+              if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                const mappedP: Product = {
+                  ...payload.new as any,
+                  sku: (payload.new as any).sku,
+                  minStock: (payload.new as any).min_stock
+                };
+                setProducts(current => {
+                  const exists = current.find(item => item.id === mappedP.id);
+                  if (exists) {
+                    return current.map(item => item.id === mappedP.id ? mappedP : item);
+                  } else {
+                    return [...current, mappedP];
+                  }
+                });
+              } else if (payload.eventType === 'DELETE') {
+                setProducts(current => current.filter(item => item.id !== payload.old.id));
+              } else {
+                fetchProducts();
+              }
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Product subscription status for ${activeAccountId}:`, status);
+      });
     
     return () => {
       isActive = false;
@@ -185,8 +254,33 @@ const App: React.FC = () => {
     
     fetchTransactions();
 
+    // Subscribe to transactions for this branch
+    const channel = supabase
+      .channel(`transactions_realtime`)
+      .on(
+        'postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'transactions'
+        }, 
+        (payload) => {
+          if (isActive) {
+            console.log('Transaction change received:', payload);
+            const t = payload.new as any || payload.old as any;
+            if (t && (!t.branch_id || t.branch_id === activeAccountId)) {
+              fetchTransactions();
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Transaction subscription status for ${activeAccountId}:`, status);
+      });
+
     return () => {
         isActive = false;
+        supabase.removeChannel(channel);
     }
   }, [activeAccountId]);
 
@@ -240,13 +334,16 @@ const App: React.FC = () => {
       }
     }
     
-    // 4. Optimistic Update
-    setTransactions(prev => [transaction, ...prev]);
-    setProducts(prev => prev.map(p => {
-      const soldItem = transaction.items.find(item => item.id === p.id);
-      if (soldItem) return { ...p, stock: p.stock - soldItem.quantity };
-      return p;
-    }));
+    // 4. Optimistic Update (Transactions only - safe from race conditions as it's an append)
+    setTransactions(prev => [{
+      ...transaction,
+      id: transData.id,
+      date: transData.date
+    }, ...prev]);
+    
+    // We REMOVED optimistic setProducts here to prevent over-subtraction bugs.
+    // The Realtime listener above will handle stock updates automatically 
+    // and more accurately as they happen in Supabase.
   };
 
   const activeAccount = useMemo(() => {
@@ -272,19 +369,29 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login />} />
         
         <Route element={
-          <RequireAuth>
-            <MainLayout 
-              activeAccount={activeAccount} 
-              lowStockProducts={lowStockProducts}
-            />
+          <RequireAuth onAuthFetch={(role, branchId) => {
+            setUserRole(role);
+            if (branchId) setMetadataBranchId(branchId);
+          }}>
+            {userRole === UserRole.SUPER_ADMIN ? (
+              <MainLayout 
+                activeAccount={activeAccount} 
+                lowStockProducts={lowStockProducts}
+              />
+            ) : (
+              <KasirLayout 
+                activeAccount={activeAccount} 
+                lowStockProducts={lowStockProducts}
+              />
+            )}
           </RequireAuth>
         }>
-          <Route path="/" element={<Dashboard products={products} transactions={transactions} lowStock={lowStockProducts} />} />
+          <Route path="/" element={userRole === UserRole.SUPER_ADMIN ? <Dashboard products={products} transactions={transactions} lowStock={lowStockProducts} /> : <Navigate to="/pos" replace />} />
           <Route path="/pos" element={<POS products={products} onCompleteTransaction={addTransaction} activeAccount={activeAccount} />} />
           <Route path="/inventory" element={<Inventory products={products} setProducts={setProducts} activeAccountId={activeAccountId} activeAccountName={activeAccount.name} />} />
-          <Route path="/reports" element={<Reports transactions={transactions} products={products} />} />
+          <Route path="/reports" element={userRole === UserRole.SUPER_ADMIN ? <Reports transactions={transactions} products={products} /> : <Navigate to="/pos" replace />} />
           <Route path="/history" element={<HistoryPage transactions={transactions} />} />
-          <Route path="/settings" element={<SettingsPage accounts={accounts} activeAccountId={activeAccountId} setActiveAccountId={setActiveAccountId} setAccounts={setAccounts} />} />
+          <Route path="/settings" element={userRole === UserRole.SUPER_ADMIN ? <SettingsPage accounts={accounts} activeAccountId={activeAccountId} setActiveAccountId={setActiveAccountId} setAccounts={setAccounts} /> : <Navigate to="/pos" replace />} />
         </Route>
       </Routes>
     </HashRouter>

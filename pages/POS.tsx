@@ -20,7 +20,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
       return matchesSearch && matchesCategory;
     });
@@ -210,7 +210,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
       <div className="contents">
           <div className="flex-1 flex flex-col gap-4 lg:gap-5 overflow-hidden">
             {/* Responsive Filter Header */}
-            <div className="bg-white p-3 sm:p-4 rounded-[2rem] sm:rounded-3xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-sm shadow-slate-100/50 shrink-0">
+            <div className="bg-white p-3 sm:p-4 rounded-4xl sm:rounded-3xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-sm shadow-slate-100/50 shrink-0">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
@@ -254,8 +254,9 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                     )}
                   </div>
                   <div className="flex-1 flex flex-col min-w-0">
+                    {product.sku && <p className="text-[8px] font-mono font-bold text-slate-400 mb-0.5">{product.sku}</p>}
                     <p className="text-[9px] font-black text-emerald-600 uppercase mb-1 tracking-widest opacity-80">{product.category}</p>
-                    <h4 className="text-[12px] lg:text-[13px] font-black text-slate-800 line-clamp-2 leading-tight mb-4 min-h-[2.5rem] group-hover:text-emerald-700 transition-colors">{product.name}</h4>
+                    <h4 className="text-[12px] lg:text-[13px] font-black text-slate-800 line-clamp-2 leading-tight mb-4 min-h-10 group-hover:text-emerald-700 transition-colors">{product.name}</h4>
                     <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between">
                       <p className="text-[13px] lg:text-[14px] font-black text-emerald-700 tracking-tight">{formatCurrency(product.price).replace('Rp', 'Rp ')}</p>
                       <div className="flex items-center gap-1">
@@ -278,8 +279,8 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
           </div>
 
           {/* Cart Drawer & Sidebar - Optimized for Tablet */}
-          <div className={`
-            fixed lg:static inset-x-0 bottom-0 z-[60] bg-white lg:bg-white border-t lg:border border-slate-200 lg:rounded-[40px] shadow-2xl lg:shadow-xl lg:shadow-slate-200/50 flex flex-col overflow-hidden transition-all duration-500 ease-out
+            <div className={`
+            fixed lg:static inset-x-0 bottom-0 z-50 bg-white lg:bg-white border-t lg:border border-slate-200 lg:rounded-[40px] shadow-2xl lg:shadow-xl lg:shadow-slate-200/50 flex flex-col overflow-hidden transition-all duration-500 ease-out
             ${isMobileCartVisible ? 'h-[85vh] translate-y-0 rounded-t-[40px]' : 'h-0 translate-y-1/2 lg:h-full lg:translate-y-0 lg:w-80 xl:w-[400px]'}
           `}>
             <div className="p-5 sm:p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
@@ -358,7 +359,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
 
           {/* Success Modal - Screen Only */}
           {isSuccessModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
               <div className="bg-white rounded-[48px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300 border border-white/20">
                 <div className="bg-emerald-600 p-8 text-center text-white relative">
                   <div className="w-20 h-20 bg-white/20 rounded-[32px] flex items-center justify-center mx-auto mb-5 border border-white/30 backdrop-blur-sm">

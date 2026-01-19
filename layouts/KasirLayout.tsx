@@ -2,30 +2,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
   ShoppingCart, 
   Package, 
-  BarChart3, 
-  History, 
-  Settings as SettingsIcon, 
+  History,
   Bell, 
   Menu, 
   LogOut, 
   MapPin,
-  AlertTriangle,
-  ChevronRight,
   X
 } from 'lucide-react';
 import { CooperativeAccount, Product } from '../types';
-
 import { supabase } from '../lib/supabaseClient';
 
-interface MainLayoutProps {
+interface KasirLayoutProps {
   activeAccount: CooperativeAccount;
   lowStockProducts: Product[];
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts }) => {
+const KasirLayout: React.FC<KasirLayoutProps> = ({ activeAccount, lowStockProducts }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1280);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -54,12 +48,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
       {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 z-[60] lg:hidden no-print transition-opacity"
+          className="fixed inset-0 bg-black/60 z-60 lg:hidden no-print transition-opacity"
           onClick={() => setIsMobileMenuOpen(false)}
         ></div>
       )}
 
-      {/* Sidebar - Integrated Responsive Design */}
+      {/* Sidebar - Cashier Specialized */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-[100] transition-all duration-300 bg-emerald-900 text-white flex flex-col no-print
         ${isMobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'}
@@ -76,15 +70,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
         </div>
 
         <nav className="flex-1 mt-6 px-3 space-y-1.5 overflow-y-auto">
-          <SidebarItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" expanded={isSidebarOpen || isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(false)} />
           <SidebarItem to="/pos" icon={<ShoppingCart size={20} />} label="Kasir (POS)" expanded={isSidebarOpen || isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(false)} />
           <SidebarItem to="/inventory" icon={<Package size={20} />} label="Inventaris" expanded={isSidebarOpen || isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(false)} />
-          <SidebarItem to="/reports" icon={<BarChart3 size={20} />} label="Laporan" expanded={isSidebarOpen || isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(false)} />
           <SidebarItem to="/history" icon={<History size={20} />} label="Riwayat" expanded={isSidebarOpen || isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(false)} />
         </nav>
 
         <div className="p-3 border-t border-emerald-800 space-y-1">
-          <SidebarItem to="/settings" icon={<SettingsIcon size={20} />} label="Pengaturan" expanded={isSidebarOpen || isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(false)} />
           <button 
             onClick={handleLogout}
             className={`flex items-center gap-4 px-3 py-2.5 w-full text-emerald-300 hover:text-white hover:bg-emerald-800 rounded-xl transition-all ${!isSidebarOpen && !isMobileMenuOpen ? 'justify-center' : ''}`}
@@ -166,10 +157,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
 
             <div className="flex items-center gap-2 sm:gap-3 pl-1.5 sm:pl-4 border-l border-slate-100">
               <div className="text-right hidden sm:block">
-                <p className="text-[10px] sm:text-xs font-black text-slate-900 uppercase tracking-wider">SUPER ADMIN</p>
-                <p className="text-[8px] sm:text-[10px] text-emerald-600 font-black tracking-widest uppercase">Full Access</p>
+                <p className="text-[10px] sm:text-xs font-black text-slate-900 uppercase tracking-wider">KASIR</p>
+                <p className="text-[8px] sm:text-[10px] text-emerald-600 font-black tracking-widest uppercase">{activeAccount.name}</p>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 text-emerald-700 rounded-lg sm:rounded-xl flex items-center justify-center font-black text-xs sm:text-sm border-2 border-emerald-50 shrink-0">SA</div>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 text-emerald-700 rounded-lg sm:rounded-xl flex items-center justify-center font-black text-xs sm:text-sm border-2 border-emerald-50 shrink-0">KS</div>
             </div>
           </div>
         </header>
@@ -201,4 +192,4 @@ const SidebarItem: React.FC<{ to: string, icon: React.ReactNode, label: string, 
   );
 };
 
-export default MainLayout;
+export default KasirLayout;

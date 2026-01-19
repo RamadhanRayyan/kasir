@@ -254,7 +254,7 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map(t => (
                   <div key={t.id} className="p-4 hover:bg-slate-50/50 transition-colors flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
                       <FileText size={24} />
                     </div>
                     <div className="flex-1">
@@ -298,7 +298,7 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
 
        {/* Detail Modal & PDF Export */}
        {selectedTransaction && (
-         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
             <div className="bg-white rounded-[32px] w-full max-w-xs overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-white/20">
               
               {/* Receipt Header */}

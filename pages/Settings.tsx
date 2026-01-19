@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, Save, Plus, Trash2, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { Building2, Save, Plus, Trash2, Check, AlertTriangle, Loader2, Copy } from 'lucide-react';
 import { CooperativeAccount } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
@@ -248,12 +248,24 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
                     ) : (
                       <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full text-center tracking-widest border border-emerald-200">Sedang Aktif</span>
                     )}
-                    <button 
-                      onClick={() => startEditing(account)}
-                      className="text-slate-400 hover:text-emerald-600 text-xs font-bold underline decoration-slate-300 hover:decoration-emerald-500 underline-offset-4 transition-all px-2"
-                    >
-                      Edit Info
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(account.id);
+                            alert('ID Cabang disalin!');
+                          }}
+                          className="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="Salin ID Cabang"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button 
+                          onClick={() => startEditing(account)}
+                          className="text-slate-400 hover:text-emerald-600 text-xs font-bold underline decoration-slate-300 hover:decoration-emerald-500 underline-offset-4 transition-all px-2"
+                        >
+                          Edit Info
+                        </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -305,7 +317,7 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
       </div>
 
       {isSecurityModalOpen && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
             <div className="flex flex-col items-center text-center space-y-4">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-2">
