@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 // Added missing Link import from react-router-dom
 import { Link } from 'react-router-dom';
-import { TrendingUp, Package, AlertCircle, ShoppingBag, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Package, AlertCircle, ShoppingBag, ChevronRight, Sparkles } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Product, Transaction } from '../types';
 
@@ -18,6 +18,61 @@ const Dashboard: React.FC<DashboardProps> = ({ products, transactions, lowStock 
     const todaySales = transactions
       .filter(t => t.date.startsWith(today))
       .reduce((acc, curr) => acc + curr.total, 0);
+
+    // Calculate yesterday's sales for comparison
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdaySales = transactions
+      .filter(t => t.date.startsWith(yesterdayStr))
+      .reduce((acc, curr) => acc + curr.total, 0);
+
+    // Calculate performance status
+    let performanceStatus: 'up' | 'stable' | 'down';
+    let performancePercent = 0;
+    
+    if (yesterdaySales === 0 && todaySales === 0) {
+      performanceStatus = 'stable';
+    } else if (yesterdaySales === 0) {
+      performanceStatus = 'up';
+      performancePercent = 100;
+    } else {
+      performancePercent = ((todaySales - yesterdaySales) / yesterdaySales) * 100;
+      if (performancePercent > 5) {
+        performanceStatus = 'up';
+      } else if (performancePercent < -5) {
+        performanceStatus = 'down';
+      } else {
+        performanceStatus = 'stable';
+      }
+    }
+
+    // Dynamic messages based on performance
+    const performanceMessages = {
+      up: [
+        "Performa koperasi hari ini cemerlang, terus melaju naik! 🚀",
+        "Bisnis sedang dalam momentum positif — luar biasa!",
+        "Grafik penjualan menunjukkan tren kenaikan yang menggembirakan.",
+        "Hari ini koperasi tampil prima, pertumbuhan terasa nyata!",
+      ],
+      stable: [
+        "Performa koperasi hari ini terpantau stabil dan konsisten.",
+        "Operasional berjalan lancar, semuanya terkendali dengan baik.",
+        "Kondisi bisnis dalam keadaan seimbang dan terjaga.",
+        "Koperasi bergerak steady, siap menghadapi tantangan baru.",
+      ],
+      down: [
+        "Performa hari ini sedikit melambat, tetap semangat!",
+        "Ada sedikit penurunan, saatnya evaluasi strategi.",
+        "Tren penjualan menurun — mari cari peluang baru!",
+        "Hari menantang, tapi setiap badai pasti berlalu.",
+      ],
+    };
+
+    // Pick a random message from the appropriate category
+    const messages = performanceMessages[performanceStatus];
+    const randomIndex = Math.floor(Math.random() * messages.length);
+    const performanceMessage = messages[randomIndex];
 
     const totalRevenue = transactions.reduce((acc, curr) => acc + curr.total, 0);
     
@@ -36,7 +91,14 @@ const Dashboard: React.FC<DashboardProps> = ({ products, transactions, lowStock 
       };
     }).reverse();
 
-    return { todaySales, totalRevenue, dailyData };
+    return { 
+      todaySales, 
+      totalRevenue, 
+      dailyData, 
+      performanceStatus, 
+      performancePercent: Math.abs(performancePercent).toFixed(1),
+      performanceMessage 
+    };
   }, [transactions]);
 
   const formatCurrency = (val: number) => 
@@ -47,7 +109,33 @@ const Dashboard: React.FC<DashboardProps> = ({ products, transactions, lowStock 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-black text-slate-900 tracking-tight leading-none">Ringkasan Bisnis</h1>
-          <p className="text-sm font-medium text-slate-500 mt-2 italic">Performa Koperasi hari ini terpantau stabil.</p>
+          <div className="flex items-center gap-2 mt-2">
+            {stats.performanceStatus === 'up' && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-full">
+                <TrendingUp size={14} className="text-emerald-600" />
+                <span className="text-[10px] font-bold text-emerald-600">+{stats.performancePercent}%</span>
+              </div>
+            )}
+            {stats.performanceStatus === 'down' && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 rounded-full">
+                <TrendingDown size={14} className="text-red-500" />
+                <span className="text-[10px] font-bold text-red-500">-{stats.performancePercent}%</span>
+              </div>
+            )}
+            {stats.performanceStatus === 'stable' && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 rounded-full">
+                <Minus size={14} className="text-blue-500" />
+                <span className="text-[10px] font-bold text-blue-500">Stabil</span>
+              </div>
+            )}
+          </div>
+          <p className={`text-sm font-medium mt-2 italic ${
+            stats.performanceStatus === 'up' ? 'text-emerald-600' : 
+            stats.performanceStatus === 'down' ? 'text-red-500' : 
+            'text-slate-500'
+          }`}>
+            {stats.performanceMessage}
+          </p>
         </div>
         <div className="flex items-center gap-3 px-4 py-2 bg-white border border-slate-200 rounded-2xl shadow-sm">
           <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
