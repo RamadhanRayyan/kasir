@@ -55,18 +55,22 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
     }
 
     // 2. Calculate Totals
-    const totalRevenue = filteredTransactions.reduce((acc, t) => acc + t.total, 0);
+    const totalProfit = filteredTransactions.reduce((acc, trans) => {
+      const transProfit = trans.items.reduce((itemAcc, item) => itemAcc + (item.price - item.cost) * item.quantity, 0);
+      return acc + transProfit;
+    }, 0);
     const totalItemsSold = filteredTransactions.reduce((acc, t) => acc + t.items.reduce((sum, i) => sum + i.quantity, 0), 0);
     // Round to nearest 100 to avoid "ugly" decimals or weird fractions like 71 rupiah
-    const rawAvg = filteredTransactions.length ? totalRevenue / filteredTransactions.length : 0;
+    const rawAvg = filteredTransactions.length ? totalProfit / filteredTransactions.length : 0;
     const avgTransaction = Math.round(rawAvg / 100) * 100;
     
-    // 3. Revenue by category for Pie Chart
+    // 3. Profit by category for Pie Chart
     const categoryData: Record<string, number> = {};
     filteredTransactions.forEach(t => {
       t.items.forEach(item => {
         const cat = item.category || 'Uncategorized';
-        categoryData[cat] = (categoryData[cat] || 0) + (item.price * item.quantity);
+        const profit = (item.price - item.cost) * item.quantity;
+        categoryData[cat] = (categoryData[cat] || 0) + profit;
       });
     });
 
@@ -77,49 +81,51 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
       }))
       .sort((a, b) => b.value - a.value);
 
-    // 4. Revenue trend
-    let trendData: { date: string, revenue: number }[] = [];
+    // 4. Profit trend
+    let trendData: { date: string, profit: number }[] = [];
 
     if (reportPeriod === 'Yearly') {
       // Group by Month (Jan - Dec of This Year)
-      const revenueByMonth: Record<string, number> = {};
+      const profitByMonth: Record<string, number> = {};
       // Initialize all 12 months for consistent chart
       for(let i=0; i<12; i++) {
           const key = `${currentYear}-${String(i + 1).padStart(2, '0')}`;
-          revenueByMonth[key] = 0;
+          profitByMonth[key] = 0;
       }
       
       filteredTransactions.forEach(t => {
         const d = new Date(t.date);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if(revenueByMonth[key] !== undefined) revenueByMonth[key] += t.total;
+        const transProfit = t.items.reduce((acc, item) => acc + (item.price - item.cost) * item.quantity, 0);
+        if(profitByMonth[key] !== undefined) profitByMonth[key] += transProfit;
       });
 
-      trendData = Object.keys(revenueByMonth).sort().map(key => ({
+      trendData = Object.keys(profitByMonth).sort().map(key => ({
         date: new Date(key + '-01').toLocaleDateString('id-ID', { month: 'short' }),
-        revenue: revenueByMonth[key]
+        profit: profitByMonth[key]
       }));
 
     } else if (reportPeriod === 'Daily') {
        // Group by Hour (00 - 23 or filtered range)
-       const hourly: Record<string, number> = {};
+       const hourlyProfit: Record<string, number> = {};
        // Init hours relevant to operation hours or just all day
-       for(let i=6; i<=22; i++) hourly[String(i).padStart(2,'0')] = 0;
+       for(let i=6; i<=22; i++) hourlyProfit[String(i).padStart(2,'0')] = 0;
        
        filteredTransactions.forEach(t => {
           const d = new Date(t.date);
           const h = String(d.getHours()).padStart(2, '0');
-          if(hourly[h] !== undefined) hourly[h] += t.total;
+          const transProfit = t.items.reduce((acc, item) => acc + (item.price - item.cost) * item.quantity, 0);
+          if(hourlyProfit[h] !== undefined) hourlyProfit[h] += transProfit;
        });
 
-       trendData = Object.keys(hourly).sort().map(h => ({
+       trendData = Object.keys(hourlyProfit).sort().map(h => ({
           date: `${h}:00`,
-          revenue: hourly[h]
+          profit: hourlyProfit[h]
        }));
 
     } else {
       // Group by Day (Weekly/Monthly)
-      const revenueByDate: Record<string, number> = {};
+      const profitByDate: Record<string, number> = {};
       
       // Initialize dates based on period to ensure empty days show up
       if (reportPeriod === 'Monthly') {
@@ -127,7 +133,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
           const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
           for(let i=1; i<=daysInMonth; i++) {
               const key = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-              revenueByDate[key] = 0;
+              profitByDate[key] = 0;
           }
       } else {
           // Weekly (Last 7 days)
@@ -135,23 +141,50 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
               const d = new Date();
               d.setDate(now.getDate() - i);
               const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              revenueByDate[key] = 0;
+              profitByDate[key] = 0;
           }
       }
 
       filteredTransactions.forEach(t => {
         const d = new Date(t.date);
         const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        if (revenueByDate[dateKey] !== undefined) revenueByDate[dateKey] += t.total;
+        const transProfit = t.items.reduce((acc, item) => acc + (item.price - item.cost) * item.quantity, 0);
+        if (profitByDate[dateKey] !== undefined) profitByDate[dateKey] += transProfit;
       });
 
-      trendData = Object.keys(revenueByDate).sort().map(dateStr => ({
+      trendData = Object.keys(profitByDate).sort().map(dateStr => ({
           date: new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-          revenue: revenueByDate[dateStr]
+          profit: profitByDate[dateStr]
         }));
     }
 
-    return { totalRevenue, totalItemsSold, avgTransaction, pieData, trendData };
+    // 5. Popular Products (Top 10)
+    const productFrequency: Record<string, { quantity: number; revenue: number; category: string }> = {};
+    filteredTransactions.forEach(t => {
+      t.items.forEach(item => {
+        const pid = item.id;
+        if (!productFrequency[pid]) {
+          productFrequency[pid] = { quantity: 0, revenue: 0, category: item.category || 'Uncategorized' };
+        }
+        productFrequency[pid].quantity += item.quantity;
+        productFrequency[pid].revenue += item.price * item.quantity;
+      });
+    });
+
+    const popularProducts = Object.entries(productFrequency)
+      .map(([id, data]) => {
+        const product = products.find(p => p.id === id);
+        return {
+          name: product?.name || 'Produk Terhapus',
+          category: data.category,
+          quantity: data.quantity,
+          revenue: data.revenue
+        };
+      })
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
+
+    return { totalProfit, totalItemsSold, avgTransaction, pieData, trendData, popularProducts };
   }, [transactions, reportPeriod]);
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -187,39 +220,49 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
       startY: 45,
       head: [['Ringkasan Performa', 'Nilai']],
       body: [
-        ['Total Pendapatan', formatCurrency(stats.totalRevenue)],
+        ['Total Gross Profit', formatCurrency(stats.totalProfit)],
         ['Total Unit Terjual', stats.totalItemsSold + ' Unit'],
-        ['Rata-rata Transaksi', formatCurrency(stats.avgTransaction)],
+        ['Rata-rata Profit/Trans', formatCurrency(stats.avgTransaction)],
         // ['Produk Terlaris', stats.pieData[0]?.name || '-']
       ],
       theme: 'grid',
       headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
-      columnStyles: { 0: { fontStyle: 'bold', width: 100 } },
+      columnStyles: { 0: { fontStyle: 'bold' } },
       styles: { fontSize: 10, cellPadding: 3 }
     });
 
     // Category Table
-    doc.text("Rincian Kategori Produk", 14, (doc as any).lastAutoTable.finalY + 10);
+    doc.text("Rincian Gross Profit Kategori", 14, (doc as any).lastAutoTable.finalY + 10);
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 12,
-      head: [['Kategori', 'Pendapatan', 'Kontribusi (%)']],
+      head: [['Kategori', 'Gross Profit', 'Kontribusi (%)']],
       body: stats.pieData.map((d: any) => [
         d.name,
         formatCurrency(d.value),
-        stats.totalRevenue > 0 ? ((d.value / stats.totalRevenue) * 100).toFixed(1) + '%' : '0%'
+        stats.totalProfit > 0 ? ((d.value / stats.totalProfit) * 100).toFixed(1) + '%' : '0%'
       ]),
       theme: 'striped',
       headStyles: { fillColor: [59, 130, 246] }, // Blue
     });
 
     // Trend Table
-    doc.text(`Rincian Pendapatan (${reportPeriod})`, 14, (doc as any).lastAutoTable.finalY + 10);
+    doc.text(`Rincian Gross Profit (${reportPeriod})`, 14, (doc as any).lastAutoTable.finalY + 10);
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 12,
-      head: [['Tanggal / Waktu', 'Pendapatan']],
-      body: stats.trendData.map((d: any) => [d.date, formatCurrency(d.revenue)]),
+      head: [['Tanggal / Waktu', 'Gross Profit']],
+      body: stats.trendData.map((d: any) => [d.date, formatCurrency(d.profit)]),
       theme: 'striped',
       headStyles: { fillColor: [245, 158, 11] }, // Orange
+    });
+
+    // Top 10 Products Table
+    doc.text("Top 10 Produk Populer", 14, (doc as any).lastAutoTable.finalY + 10);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 12,
+      head: [['No', 'Produk', 'Kategori', 'Terjual']],
+      body: stats.popularProducts.map((p, i) => [i + 1, p.name, p.category, p.quantity + ' Unit']),
+      theme: 'striped',
+      headStyles: { fillColor: [139, 92, 246] }, // Violet
     });
 
     // Footer
@@ -263,7 +306,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
         <div className="md:col-span-2 space-y-6">
           {/* Main Trend Chart */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-6">Tren Pendapatan</h3>
+            <h3 className="font-bold text-slate-800 mb-6">Tren Gross Profit</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={stats.trendData}>
@@ -288,7 +331,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
                   <Tooltip 
                     contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'}}
                   />
-                  <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                  <Area type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -300,8 +343,8 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
                 <DollarSign size={28} />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-500">Total Pendapatan</p>
-                <h2 className="text-xl font-bold text-slate-900">{formatCurrency(stats.totalRevenue)}</h2>
+                <p className="text-sm font-medium text-slate-500">Total Gross Profit</p>
+                <h2 className="text-xl font-bold text-slate-900">{formatCurrency(stats.totalProfit)}</h2>
               </div>
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -355,12 +398,64 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
                     <span className="text-slate-600">{d.name}</span>
                   </div>
                   <span className="font-bold text-slate-900">
-                    {stats.totalRevenue > 0 ? ((d.value / stats.totalRevenue) * 100).toFixed(1) : 0}%
+                    {stats.totalProfit > 0 ? ((d.value / stats.totalProfit) * 100).toFixed(1) : 0}%
                   </span>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Top 10 Popular Products Section */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-bold text-slate-800">10 Produk Paling Sering Dibeli</h3>
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Berdasarkan Jumlah Unit</span>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest w-12 text-center">No</th>
+                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest pl-4">Produk</th>
+                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest pl-4">Kategori</th>
+                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right pr-4">Terjual (Unit)</th>
+                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Potensi Omzet</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {stats.popularProducts.length > 0 ? (
+                stats.popularProducts.map((p, i) => (
+                  <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="py-4 text-sm font-bold text-slate-400 text-center">
+                      {i + 1 === 1 && <span className="w-6 h-6 bg-yellow-400 text-white rounded-full flex items-center justify-center mx-auto text-[10px]">1</span>}
+                      {i + 1 === 2 && <span className="w-6 h-6 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center mx-auto text-[10px]">2</span>}
+                      {i + 1 === 3 && <span className="w-6 h-6 bg-orange-200 text-orange-700 rounded-full flex items-center justify-center mx-auto text-[10px]">3</span>}
+                      {i + 1 > 3 && i + 1}
+                    </td>
+                    <td className="py-4 pl-4">
+                      <p className="text-sm font-bold text-slate-800">{p.name}</p>
+                    </td>
+                    <td className="py-4 pl-4">
+                      <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-wider">{p.category}</span>
+                    </td>
+                    <td className="py-4 text-right pr-4 text-sm font-bold text-emerald-600">
+                      {p.quantity} <span className="text-[10px] text-slate-400 uppercase ml-0.5">Unit</span>
+                    </td>
+                    <td className="py-4 text-right text-sm font-bold text-slate-900">
+                      {formatCurrency(p.revenue)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-400 text-sm italic">Belum ada data penjualan pada periode ini</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

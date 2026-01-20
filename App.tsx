@@ -377,6 +377,9 @@ const App: React.FC = () => {
               <MainLayout 
                 activeAccount={activeAccount} 
                 lowStockProducts={lowStockProducts}
+                accounts={accounts}
+                activeAccountId={activeAccountId}
+                setActiveAccountId={setActiveAccountId}
               />
             ) : (
               <KasirLayout 
@@ -386,7 +389,7 @@ const App: React.FC = () => {
             )}
           </RequireAuth>
         }>
-          <Route path="/" element={userRole === UserRole.SUPER_ADMIN ? <Dashboard products={products} transactions={transactions} lowStock={lowStockProducts} /> : <Navigate to="/pos" replace />} />
+          <Route path="/" element={userRole === UserRole.SUPER_ADMIN ? <Dashboard products={products} transactions={transactions} lowStock={lowStockProducts} accounts={accounts} activeAccountId={activeAccountId} setActiveAccountId={setActiveAccountId} /> : <Navigate to="/pos" replace />} />
           <Route path="/pos" element={<POS products={products} onCompleteTransaction={addTransaction} activeAccount={activeAccount} />} />
           <Route path="/inventory" element={<Inventory products={products} setProducts={setProducts} activeAccountId={activeAccountId} activeAccountName={activeAccount.name} />} />
           <Route path="/reports" element={userRole === UserRole.SUPER_ADMIN ? <Reports transactions={transactions} products={products} /> : <Navigate to="/pos" replace />} />

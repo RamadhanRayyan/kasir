@@ -128,7 +128,6 @@ const KasirLayout: React.FC<KasirLayoutProps> = ({ activeAccount, lowStockProduc
                   <div className="max-h-[300px] overflow-y-auto">
                     {lowStockProducts.length > 0 ? (
                       lowStockProducts.map(product => (
-                      lowStockProducts.map(product => (
                         <Link 
                           key={product.id} 
                           to="/inventory"
@@ -143,7 +142,6 @@ const KasirLayout: React.FC<KasirLayoutProps> = ({ activeAccount, lowStockProduc
                             <p className="text-[10px] text-slate-500 mt-0.5">Stok tersisa: <span className="text-red-600 font-bold">{product.stock}</span></p>
                           </div>
                         </Link>
-                      ))
                       ))
                     ) : (
                       <div className="px-4 py-8 text-center">

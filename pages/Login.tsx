@@ -47,7 +47,7 @@ const Login = () => {
 
         <div className="p-8">
           <div className="mb-8 text-center">
-            <h2 className="text-xl font-bold text-slate-800">Selamat Datang Kembali</h2>
+            <h2 className="text-xl font-bold text-slate-800">Selamat Datang</h2>
             <p className="text-slate-500 text-sm mt-1">Silakan masuk untuk melanjutkan</p>
           </div>
 

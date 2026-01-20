@@ -49,6 +49,16 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
     }).filter(item => item.quantity > 0));
   };
 
+  const setQuantity = (id: string, value: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = Math.max(0, Math.min(value, item.stock));
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }).filter(item => item.quantity > 0));
+  };
+
   const removeFromCart = (id: string) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
@@ -210,8 +220,8 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
       <div className="contents">
           <div className="flex-1 flex flex-col gap-4 lg:gap-5 overflow-hidden">
             {/* Responsive Filter Header */}
-            <div className="bg-white p-3 sm:p-4 rounded-4xl sm:rounded-3xl border border-slate-200 flex flex-col md:flex-row gap-3 shadow-sm shadow-slate-100/50 shrink-0">
-              <div className="relative flex-1">
+            <div className="bg-white p-3 sm:p-4 rounded-4xl sm:rounded-3xl border border-slate-200 flex flex-col gap-4 shadow-sm shadow-slate-100/50 shrink-0">
+              <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="text" 
@@ -221,47 +231,63 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="flex gap-2">
-                <select 
-                  className="flex-1 md:flex-none px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 text-[10px] font-black text-slate-600 uppercase tracking-widest cursor-pointer"
-                  value={activeCategory}
-                  onChange={(e) => setActiveCategory(e.target.value as any)}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar px-1">
+                <button
+                  onClick={() => setActiveCategory('All')}
+                  className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-2 ${
+                    activeCategory === 'All' 
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xl shadow-emerald-200' 
+                    : 'bg-white text-slate-500 border-slate-100 hover:border-emerald-200 hover:text-emerald-600 shadow-sm'
+                  }`}
                 >
-                  <option value="All">Semua Kategori</option>
-                  {Object.values(Category).map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-                <div className="hidden sm:block">
-                   <button className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100"><LayoutGrid size={20} /></button>
-                </div>
+                  Semua
+                </button>
+                {Object.values(Category).map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border-2 ${
+                      activeCategory === cat 
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xl shadow-emerald-200' 
+                      : 'bg-white text-slate-500 border-slate-100 hover:border-emerald-200 hover:text-emerald-600 shadow-sm'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* Product Grid */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 pb-32 lg:pb-6 pr-1 items-start content-start">
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 pb-40 lg:pb-24 pr-2 items-start content-start custom-scrollbar">
               {filteredProducts.map(product => (
                 <button 
                   key={product.id}
                   onClick={() => addToCart(product)}
                   disabled={product.stock <= 0}
-                  className={`group flex flex-col bg-white border border-slate-100 rounded-3xl overflow-hidden hover:border-emerald-400 hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 text-left p-3.5 h-auto ${product.stock <= 0 ? 'opacity-40 grayscale pointer-events-none' : ''}`}
+                  className={`group flex flex-col bg-white border border-slate-100 rounded-[32px] overflow-hidden hover:border-emerald-400 hover:shadow-2xl hover:shadow-emerald-900/10 transition-all duration-500 text-left p-5 h-full min-h-[180px] relative ${product.stock <= 0 ? 'opacity-40 grayscale pointer-events-none' : 'shadow-sm shadow-slate-200/50'}`}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-sm border border-emerald-100/50 group-hover:scale-110 transition-transform">
-                      <Box size={16} />
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-sm border border-emerald-100/50 group-hover:scale-110 transition-transform">
+                      <Box size={18} />
                     </div>
-                    {product.stock <= product.minStock && (
-                      <span className="bg-orange-100 text-orange-600 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">LOW</span>
+                    {product.stock <= product.minStock && product.stock > 0 && (
+                      <span className="bg-orange-100 text-orange-600 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest animate-pulse">Low Stock</span>
                     )}
                   </div>
                   <div className="flex-1 flex flex-col min-w-0">
-                    {product.sku && <p className="text-[8px] font-mono font-bold text-slate-400 mb-0.5">{product.sku}</p>}
-                    <p className="text-[9px] font-black text-emerald-600 uppercase mb-1 tracking-widest opacity-80">{product.category}</p>
-                    <h4 className="text-[12px] lg:text-[13px] font-black text-slate-800 line-clamp-2 leading-tight mb-4 min-h-10 group-hover:text-emerald-700 transition-colors">{product.name}</h4>
-                    <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between">
-                      <p className="text-[13px] lg:text-[14px] font-black text-emerald-700 tracking-tight">{formatCurrency(product.price).replace('Rp', 'Rp ')}</p>
-                      <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                        <p className="text-[10px] text-slate-400 font-black uppercase">Stk: {product.stock}</p>
+                    <div className="mb-3">
+                      <p className="text-[9px] font-black text-emerald-600 uppercase mb-1 tracking-widest opacity-80">{product.category}</p>
+                      <h4 className="text-[12px] lg:text-[14px] font-black text-slate-800 line-clamp-2 leading-tight group-hover:text-emerald-700 transition-colors uppercase tracking-tight">{product.name}</h4>
+                    </div>
+                    
+                    <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between gap-2">
+                      <p className="text-[14px] lg:text-[16px] font-black text-emerald-700 tracking-tight shrink-0">{formatCurrency(product.price)}</p>
+                      <div className={`px-2 py-1 rounded-lg flex items-center gap-1.5 ${product.stock <= product.minStock ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-500'}`}>
+                        <div className={`w-1 h-1 rounded-full ${product.stock <= product.minStock ? 'bg-orange-500' : 'bg-slate-400'}`}></div>
+                        <span className="text-[9px] font-black uppercase tracking-wider">
+                          Stok: {product.stock}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -309,10 +335,16 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                       <p className="text-[12px] font-black text-slate-800 truncate leading-tight group-hover:text-emerald-700 transition-colors">{item.name}</p>
                       <p className="text[11px] text-emerald-600 font-black mt-1 tracking-tight">{formatCurrency(item.price)}</p>
                     </div>
-                    <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"><Minus size={14} /></button>
-                      <span className="text-[13px] font-black w-5 text-center text-slate-700">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-emerald-600 transition-colors"><Plus size={14} /></button>
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
+                      <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors shrink-0"><Minus size={14} /></button>
+                      <input 
+                        type="number" 
+                        value={item.quantity}
+                        onChange={(e) => setQuantity(item.id, parseInt(e.target.value) || 0)}
+                        onFocus={(e) => e.target.select()}
+                        className="text-[13px] font-black w-10 text-center text-slate-700 bg-transparent border-none outline-none focus:ring-0 p-0"
+                      />
+                      <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-emerald-600 transition-colors shrink-0"><Plus size={14} /></button>
                     </div>
                     <button onClick={() => removeFromCart(item.id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                   </div>
@@ -359,7 +391,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
 
           {/* Success Modal - Screen Only */}
           {isSuccessModalOpen && (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
               <div className="bg-white rounded-[48px] w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300 border border-white/20">
                 <div className="bg-emerald-600 p-8 text-center text-white relative">
                   <div className="w-20 h-20 bg-white/20 rounded-[32px] flex items-center justify-center mx-auto mb-5 border border-white/30 backdrop-blur-sm">

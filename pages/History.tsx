@@ -29,7 +29,7 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
     // Header
     doc.setFontSize(18);
     doc.setTextColor(16, 185, 129);
-    doc.text("Laporan Riwayat Transaksi", pageWidth / 2, 20, { align: 'center' });
+    doc.text("Riwayat Transaksi", pageWidth / 2, 20, { align: 'center' });
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -103,19 +103,17 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
     // --- TRANSACTION DETAILS ---
     doc.setFontSize(8);
     
-    // Order ID & Date
+    // Date & Time
     doc.setFont("helvetica", "normal");
     doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-    doc.text("Order ID", margin, yPos);
-    doc.text("Tanggal", pageWidth - margin, yPos, { align: 'right' });
+    doc.text("Tanggal & Waktu", margin, yPos);
     yPos += 4;
     
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text(selectedTransaction.id, margin, yPos);
     const dateStr = new Date(selectedTransaction.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit'});
     const timeStr = new Date(selectedTransaction.date).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
-    doc.text(`${dateStr}, ${timeStr}`, pageWidth - margin, yPos, { align: 'right' });
+    doc.text(`${dateStr}, ${timeStr}`, margin, yPos);
     
     yPos += 8;
 
@@ -231,7 +229,7 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
               </div>
               <button onClick={handleExportHistoryPDF} className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 active:scale-95">
                 <Download size={18} />
-                Ekspor Laporan
+                Ekspor Riwayat
               </button>
             </div>
           </div>
@@ -298,7 +296,7 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
 
        {/* Detail Modal & PDF Export */}
        {selectedTransaction && (
-         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
             <div className="bg-white rounded-[32px] w-full max-w-xs overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 border border-white/20">
               
               {/* Receipt Header */}

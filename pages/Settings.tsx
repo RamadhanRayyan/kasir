@@ -239,7 +239,7 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
                             <Trash2 size={16} />
                           </button>
                           <button 
-                            onClick={() => handleSecurityCheck('SWITCH_BRANCH', account.id)}
+                            onClick={() => setActiveAccountId(account.id)}
                             className="flex items-center gap-2 px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
                           >
                             <Check size={14} /> Pilih

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 /* Added missing X icon to imports */
 import { Package, Plus, Search, Filter, Edit2, Trash2, ChevronRight, AlertTriangle, Box, X } from 'lucide-react';
 import { Product, Category } from '../types';
@@ -21,22 +21,42 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<Category | 'All'>('All');
-  const [filterRestock, setFilterRestock] = useState(false);
+  const [filterStockStatus, setFilterStockStatus] = useState<'All' | 'Zero' | 'Low'>('All');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = filterCategory === 'All' || p.category === filterCategory;
-    const matchesRestock = !filterRestock || p.stock <= p.minStock;
-    // Strict Double-Check: Ensure product belongs to active branch
-    // This protects against any 'ghost' data from previous states
+    
+    let matchesStock = true;
+    if (filterStockStatus === 'Zero') matchesStock = p.stock === 0;
+    else if (filterStockStatus === 'Low') matchesStock = p.stock > 0 && p.stock <= 7;
+
     const matchesBranch = p.branch_id === activeAccountId; 
     
-    return matchesSearch && matchesCategory && matchesRestock && matchesBranch;
+    return matchesSearch && matchesCategory && matchesStock && matchesBranch;
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterCategory, filterStockStatus, activeAccountId]);
 
   const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeAccountId) return; 
+
+    // Validation: New products must have stock > 0
+    if (!formData.id && Number(formData.stock) <= 0) {
+      alert('Stok awal barang baru harus lebih dari 0!');
+      return;
+    }
 
     setIsLoading(true);
 
@@ -112,7 +132,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
   }
 
   const resetForm = () => {
-      setFormData({ name: '', sku: '', category: Category.MAKANAN, price: 0, cost: 0, stock: 0, minStock: 5 });
+      setFormData({ name: '', sku: '', category: Category.MAKANAN, price: 0, cost: 0, stock: 1, minStock: 5 });
   }
 
   const formatCurrency = (val: number) => 
@@ -131,9 +151,9 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
-        <StatItem icon={<Package size={20} />} color="blue" label="Total Varian" value={products.length} />
-        <StatItem icon={<ChevronRight size={20} />} color="emerald" label="Total Unit" value={products.reduce((acc, p) => acc + p.stock, 0)} />
-        <StatItem icon={<AlertTriangle size={20} />} color="red" label="Perlu Restock" value={products.filter(p => p.stock <= p.minStock).length} />
+        <StatItem icon={<Package size={20} />} color="blue" label="Total Barang" value={products.length} />
+        <StatItem icon={<X size={20} />} color="red" label="Zero Stock" value={products.filter(p => p.stock === 0).length} />
+        <StatItem icon={<AlertTriangle size={20} />} color="orange" label="Low Stock (1-7)" value={products.filter(p => p.stock > 0 && p.stock <= 7).length} />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -169,16 +189,17 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
               </select>
             </div>
             
-            <div className="space-y-1 flex flex-col justify-end">
-               <label className="flex items-center gap-2 cursor-pointer select-none">
-                 <input 
-                   type="checkbox" 
-                   checked={filterRestock}
-                   onChange={(e) => setFilterRestock(e.target.checked)}
-                   className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300"
-                 />
-                 <span className="text-sm text-slate-700 font-medium">Hanya Perlu Restock</span>
-               </label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Status Stok</label>
+              <select 
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                value={filterStockStatus}
+                onChange={(e) => setFilterStockStatus(e.target.value as 'All' | 'Zero' | 'Low')}
+              >
+                <option value="All">Semua Status</option>
+                <option value="Zero">Zero Stock (0)</option>
+                <option value="Low">Low Stock (1-7)</option>
+              </select>
             </div>
           </div>
         )}
@@ -197,41 +218,92 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredProducts.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors text-xs lg:text-sm">
-                  <td className="px-4 lg:px-6 py-4">
-                    <span className="font-mono text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{p.sku || '-'}</span>
-                  </td>
-                  <td className="px-4 lg:px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400 shrink-0"><Box size={16} /></div>
-                      <span className="font-semibold text-slate-800 line-clamp-1">{p.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 lg:px-6 py-4"><span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full uppercase">{p.category}</span></td>
-                  <td className="px-4 lg:px-6 py-4 text-slate-500">{formatCurrency(p.cost)}</td>
-                  <td className="px-4 lg:px-6 py-4 text-emerald-700 font-semibold">{formatCurrency(p.price)}</td>
-                  <td className="px-4 lg:px-6 py-4 text-center">
-                    <div className="flex flex-col items-center">
-                      <span className="font-mono font-bold">{p.stock}</span>
-                      {p.stock <= p.minStock && <span className="text-[8px] font-bold text-red-500 uppercase">Restock</span>}
-                    </div>
-                  </td>
-                  <td className="px-4 lg:px-6 py-4">
-                    <div className="flex items-center gap-1 lg:gap-2">
-                      <button onClick={() => openEditModal(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button>
-                      <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
-                    </div>
+              {paginatedProducts.length > 0 ? (
+                paginatedProducts.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors text-xs lg:text-sm">
+                    <td className="px-4 lg:px-6 py-4">
+                      <span className="font-mono text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{p.sku || '-'}</span>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400 shrink-0"><Box size={16} /></div>
+                        <span className="font-semibold text-slate-800 line-clamp-1">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4"><span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-full uppercase">{p.category}</span></td>
+                    <td className="px-4 lg:px-6 py-4 text-slate-500">{formatCurrency(p.cost)}</td>
+                    <td className="px-4 lg:px-6 py-4 text-emerald-700 font-semibold">{formatCurrency(p.price)}</td>
+                    <td className="px-4 lg:px-6 py-4 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className={`font-mono font-bold ${p.stock === 0 ? 'text-red-600' : p.stock <= 7 ? 'text-orange-500' : ''}`}>{p.stock}</span>
+                        {p.stock === 0 && <span className="text-[8px] font-bold text-red-500 uppercase">Habis</span>}
+                        {p.stock > 0 && p.stock <= 7 && <span className="text-[8px] font-bold text-orange-500 uppercase">Tipis</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4">
+                      <div className="flex items-center gap-1 lg:gap-2">
+                        <button onClick={() => openEditModal(p)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                    Tidak ada barang ditemukan.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="px-4 lg:px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              Menampilkan <span className="font-bold text-slate-800">{paginatedProducts.length}</span> dari <span className="font-bold text-slate-800">{filteredProducts.length}</span> barang
+            </p>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 text-slate-400 hover:text-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronRight size={18} className="rotate-180" />
+              </button>
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i + 1}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                      currentPage === i + 1 
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
+                        : 'text-slate-400 hover:bg-slate-100'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 text-slate-400 hover:text-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Halaman Berikutnya"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95">
             <div className="p-5 lg:p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="text-lg lg:text-xl font-bold text-slate-900">{formData.id ? 'Edit Barang' : 'Barang Baru'}</h2>
@@ -257,17 +329,17 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Stok (Restock)</label>
-                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} onFocus={e => e.target.select()} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hrg Beli</label>
-                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.cost} onChange={e => setFormData({...formData, cost: Number(e.target.value)})} />
+                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.cost} onChange={e => setFormData({...formData, cost: Number(e.target.value)})} onFocus={e => e.target.select()} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hrg Jual</label>
-                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} onFocus={e => e.target.select()} />
                 </div>
               </div>
               <div className="pt-4 flex gap-3">
@@ -286,7 +358,8 @@ const StatItem: React.FC<{ icon: React.ReactNode, color: string, label: string, 
   const colors: Record<string, string> = {
     blue: 'bg-blue-50 text-blue-600',
     emerald: 'bg-emerald-50 text-emerald-600',
-    red: 'bg-red-50 text-red-600'
+    red: 'bg-red-50 text-red-600',
+    orange: 'bg-orange-50 text-orange-500'
   };
   return (
     <div className="bg-white p-3 lg:p-4 rounded-2xl border border-slate-200 flex items-center gap-3 lg:gap-4 shadow-sm">

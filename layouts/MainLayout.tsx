@@ -14,6 +14,8 @@ import {
   MapPin,
   AlertTriangle,
   ChevronRight,
+  ChevronDown,
+  Building2,
   X
 } from 'lucide-react';
 import { CooperativeAccount, Product } from '../types';
@@ -23,19 +25,33 @@ import { supabase } from '../lib/supabaseClient';
 interface MainLayoutProps {
   activeAccount: CooperativeAccount;
   lowStockProducts: Product[];
+  accounts: CooperativeAccount[];
+  activeAccountId: string;
+  setActiveAccountId: (id: string) => void;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ 
+  activeAccount, 
+  lowStockProducts,
+  accounts,
+  activeAccountId,
+  setActiveAccountId
+}) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1280);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const accountDropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
         setIsNotificationOpen(false);
+      }
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target as Node)) {
+        setIsAccountDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -108,12 +124,54 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
             >
               <Menu size={20} />
             </button>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100 max-w-[140px] xs:max-w-[200px] sm:max-w-none">
-              <MapPin size={14} className="text-emerald-600 shrink-0" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-[8px] sm:text-[9px] font-bold text-emerald-500 uppercase leading-none truncate">Cabang Aktif</span>
-                <span className="text-[10px] sm:text-xs font-bold text-emerald-900 truncate">{activeAccount.name}</span>
-              </div>
+            <div className="relative" ref={accountDropdownRef}>
+              <button 
+                onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all max-w-[140px] xs:max-w-[200px] sm:max-w-none ${
+                  isAccountDropdownOpen ? 'bg-emerald-100 border-emerald-300' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100'
+                }`}
+              >
+                <MapPin size={14} className="text-emerald-600 shrink-0" />
+                <div className="flex flex-col min-w-0 text-left">
+                  <span className="text-[8px] sm:text-[9px] font-bold text-emerald-500 uppercase leading-none truncate">Cabang Aktif</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-emerald-900 truncate">{activeAccount.name}</span>
+                </div>
+                {accounts.length > 1 && (
+                  <ChevronDown size={14} className={`text-emerald-600 transition-transform ${isAccountDropdownOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {isAccountDropdownOpen && accounts.length > 1 && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[100] animate-in fade-in slide-in-from-top-2">
+                  <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Cabang</p>
+                  </div>
+                  {accounts.map(account => (
+                    <button
+                      key={account.id}
+                      onClick={() => {
+                        setActiveAccountId(account.id);
+                        setIsAccountDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors flex items-center gap-3 ${
+                        account.id === activeAccountId ? 'bg-emerald-50' : ''
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        account.id === activeAccountId ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        <Building2 size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`text-sm font-bold truncate ${account.id === activeAccountId ? 'text-emerald-700' : 'text-slate-800'}`}>
+                          {account.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">{account.address}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -137,7 +195,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
                   <div className="max-h-[300px] overflow-y-auto">
                     {lowStockProducts.length > 0 ? (
                       lowStockProducts.map(product => (
-                      lowStockProducts.map(product => (
                         <Link 
                           key={product.id} 
                           to="/inventory"
@@ -152,7 +209,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ activeAccount, lowStockProducts
                             <p className="text-[10px] text-slate-500 mt-0.5">Stok tersisa: <span className="text-red-600 font-bold">{product.stock}</span></p>
                           </div>
                         </Link>
-                      ))
                       ))
                     ) : (
                       <div className="px-4 py-8 text-center">
