@@ -199,7 +199,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
     // Header
     doc.setFontSize(22);
     doc.setTextColor(16, 185, 129); // Emerald
-    doc.text("Laporan Koperasi POSKoe", pageWidth / 2, 20, { align: 'center' });
+    doc.text("Laporan Toko Amanah", pageWidth / 2, 20, { align: 'center' });
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -274,7 +274,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
         doc.text(`Halaman ${i} dari ${totalPages}`, pageWidth / 2, doc.internal.pageSize.height - 10, { align: 'center' });
     }
 
-    doc.save(`Laporan_POSKoe_${reportPeriod}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Laporan_Toko_Amanah_${reportPeriod}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (

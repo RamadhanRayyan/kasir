@@ -83,8 +83,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       `}>
         <div className="p-5 flex items-center justify-between h-16 shrink-0 border-b border-emerald-800">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 bg-emerald-400 rounded-xl flex items-center justify-center font-black text-emerald-900 shrink-0 shadow-lg shadow-emerald-950/20">PK</div>
-            {(isSidebarOpen || isMobileMenuOpen) && <span className="text-xl font-black tracking-tight whitespace-nowrap">POSKoe</span>}
+            <div className="w-9 h-9 bg-emerald-400 rounded-xl flex items-center justify-center font-black text-emerald-900 shrink-0 shadow-lg shadow-emerald-950/20">TA</div>
+            {(isSidebarOpen || isMobileMenuOpen) && <span className="text-xl font-black tracking-tight whitespace-nowrap">Toko Amanah</span>}
           </div>
           <button className="lg:hidden p-1.5 hover:bg-emerald-800 rounded-lg" onClick={() => setIsMobileMenuOpen(false)}>
             <X size={20} />

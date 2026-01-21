@@ -76,7 +76,7 @@ const App: React.FC = () => {
         if (metadataBranchId && data.find(a => a.id === metadataBranchId)) {
             setActiveAccountId(metadataBranchId);
         } else {
-            const savedId = localStorage.getItem('poskoe_active_account_id');
+            const savedId = localStorage.getItem('toko_amanah_active_account_id');
             if (savedId && data.find(a => a.id === savedId)) {
                 setActiveAccountId(savedId);
             } else if (data.length > 0) {
@@ -85,7 +85,7 @@ const App: React.FC = () => {
         }
       } else {
         // Init default account if none exists (First Run)
-        const defaultAccount = { name: 'Koperasi Pusat', address: 'Pusat', phone: '-' };
+        const defaultAccount = { name: 'Toko Amanah', address: 'Pusat', phone: '-' };
         const { data: newData } = await supabase.from('accounts').insert([defaultAccount]).select().single();
         if (newData) {
             setAccounts([newData]);
@@ -115,7 +115,7 @@ const App: React.FC = () => {
   // Persist Active Account Change
   useEffect(() => {
     if (activeAccountId) {
-        localStorage.setItem('poskoe_active_account_id', activeAccountId);
+        localStorage.setItem('toko_amanah_active_account_id', activeAccountId);
     }
   }, [activeAccountId]);
 

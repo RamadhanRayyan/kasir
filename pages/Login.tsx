@@ -40,7 +40,7 @@ const Login = () => {
             <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
               <Store size={32} className="text-white" />
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">POSKoe</h1>
+            <h1 className="text-3xl font-black text-white tracking-tight">Toko Amanah</h1>
             <p className="text-emerald-100 font-medium mt-2">Sistem Koperasi Terpadu</p>
           </div>
         </div>
@@ -111,7 +111,7 @@ const Login = () => {
 
           <div className="mt-8 text-center">
             <p className="text-xs text-slate-400 font-medium">
-              &copy; {new Date().getFullYear()} POSKoe Koperasi System
+              &copy; {new Date().getFullYear()} Toko Amanah POS System
             </p>
           </div>
         </div>
