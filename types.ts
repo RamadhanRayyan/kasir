@@ -19,6 +19,11 @@ export interface CooperativeAccount {
   phone: string;
 }
 
+export interface ProductVariant {
+  name: string;
+  price: number;
+}
+
 export interface Product {
   id: string;
   branch_id?: string;
@@ -29,10 +34,12 @@ export interface Product {
   cost: number;
   stock: number;
   minStock: number;
+  variants?: ProductVariant[];
 }
 
 export interface CartItem extends Product {
   quantity: number;
+  selectedVariants?: ProductVariant[];
 }
 
 export interface Transaction {

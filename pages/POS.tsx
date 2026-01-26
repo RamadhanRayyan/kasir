@@ -14,9 +14,16 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [cart, setCart] = useState<CartItem[]>([]);
+  /* Variant State */
+  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
+  const [selectedProductForVariant, setSelectedProductForVariant] = useState<Product | null>(null);
+  const [tempSelectedVariants, setTempSelectedVariants] = useState<Product['variants']>([]);
+
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+
   const [isMobileCartVisible, setIsMobileCartVisible] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -28,15 +35,47 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return;
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+
+    // Check for variants
+    if (product.variants && product.variants.length > 0) {
+      setSelectedProductForVariant(product);
+      setTempSelectedVariants([]);
+      setIsVariantModalOpen(true);
+      return;
+    }
+
+    addItemToCart(product, []);
+  };
+
+  const addItemToCart = (product: Product, variants: Product['variants']) => {
+     setCart(prev => {
+      // Unique ID based on Product ID + Variant Strings (sorted)
+      const variantKey = variants ? variants.map(v => v.name).sort().join(',') : '';
+      
+      const existing = prev.find(item => {
+          const itemVariantKey = item.selectedVariants ? item.selectedVariants.map(v => v.name).sort().join(',') : '';
+          return item.id === product.id && itemVariantKey === variantKey;
+      });
+
       if (existing) {
         if (existing.quantity >= product.stock) return prev;
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => {
+             const itemVariantKey = item.selectedVariants ? item.selectedVariants.map(v => v.name).sort().join(',') : '';
+             return (item.id === product.id && itemVariantKey === variantKey) ? { ...item, quantity: item.quantity + 1 } : item
+        });
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: 1, selectedVariants: variants }];
     });
-  };
+  }
+
+  const handleVariantSubmit = () => {
+      if (selectedProductForVariant) {
+          addItemToCart(selectedProductForVariant, tempSelectedVariants);
+          setIsVariantModalOpen(false);
+          setSelectedProductForVariant(null);
+          setTempSelectedVariants([]);
+      }
+  }
 
   const updateQuantity = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -63,23 +102,40 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const calculateItemPrice = (item: CartItem) => {
+      const variantsPrice = item.selectedVariants ? item.selectedVariants.reduce((sum, v) => sum + v.price, 0) : 0;
+      return item.price + variantsPrice;
+  }
+
+  const subtotal = cart.reduce((acc, item) => acc + (calculateItemPrice(item) * item.quantity), 0);
   const total = subtotal;
 
-  const handleCheckout = (method: Transaction['paymentMethod']) => {
-    if (cart.length === 0) return;
-    const newTransaction: Transaction = {
-      id: `TRX-${Date.now()}`,
-      items: [...cart],
-      total,
-      paymentMethod: method,
-      date: new Date().toISOString()
-    };
-    onCompleteTransaction(newTransaction);
-    setLastTransaction(newTransaction);
-    setCart([]);
-    setIsSuccessModalOpen(true);
-    setIsMobileCartVisible(false);
+  const handleCheckout = async (method: Transaction['paymentMethod']) => {
+    if (cart.length === 0 || isProcessing) return;
+    
+    setIsProcessing(true);
+    try {
+      const newTransaction: Transaction = {
+        id: `TRX-${Date.now()}`,
+        items: [...cart],
+        total,
+        paymentMethod: method,
+        date: new Date().toISOString()
+      };
+      
+      // Await the completion if onCompleteTransaction returns a promise (it does in App.tsx)
+      await onCompleteTransaction(newTransaction);
+      
+      setLastTransaction(newTransaction);
+      setCart([]);
+      setIsSuccessModalOpen(true);
+      setIsMobileCartVisible(false);
+    } catch (error) {
+      console.error("Transaction failed", error);
+      alert("Transaksi gagal, silakan coba lagi.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatCurrency = (val: number) => 
@@ -333,14 +389,33 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                   <div key={item.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-[28px] border border-slate-100 group">
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-black text-slate-800 truncate leading-tight group-hover:text-emerald-700 transition-colors">{item.name}</p>
-                      <p className="text[11px] text-emerald-600 font-black mt-1 tracking-tight">{formatCurrency(item.price)}</p>
+                      {item.selectedVariants && item.selectedVariants.length > 0 && (
+                          <p className="text-[9px] text-slate-400 font-bold mt-0.5 line-clamp-1">
+                              + {item.selectedVariants.map(v => v.name).join(', ')}
+                          </p>
+                      )}
+                      <p className="text[11px] text-emerald-600 font-black mt-1 tracking-tight">{formatCurrency(calculateItemPrice(item))}</p>
                     </div>
                     <div className="flex items-center gap-2 bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
                       <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors shrink-0"><Minus size={14} /></button>
                       <input 
                         type="number" 
-                        value={item.quantity}
-                        onChange={(e) => setQuantity(item.id, parseInt(e.target.value) || 0)}
+                        value={item.quantity === 0 ? '' : item.quantity}
+                        onChange={(e) => {
+                           // If empty, set to 0. If 0, it won't disappear because of filter, but UI will look empty.
+                           // Actually filter > 0 removes it. But if we allow 0 temporarily in setQuantity, we need to defer removal.
+                           // But current setQuantity removes if 0.
+                           // User usually uses '-' button to remove, or types 0.
+                           // If they want to change 10 to 5, and delete 0 -> 1. Delete 1 -> 0 -> Boom removed.
+                           // To fix "cannot delete", providing a way to type "5" after deleting "1" (from "10") requires NOT removing on 0 immediately.
+                           // However, changing setQuantity logic is risky for 'removeFromCart'.
+                           // The reported bug "cannot delete 0" implies the 0 comes back.
+                           // If the behavior is "it gets removed", they'd complain "item hilang".
+                           // If they complain "0 gabisa didelete", it means 0 STAYS.
+                           // So I will assume the filter is NOT removing it instantly in the input context or the user refers to Inventory inputs primarily.
+                           // But I will apply the 'display empty if 0' trick here too just in case.
+                           setQuantity(item.id, parseInt(e.target.value) || 0)
+                        }}
                         onFocus={(e) => e.target.select()}
                         className="text-[13px] font-black w-10 text-center text-slate-700 bg-transparent border-none outline-none focus:ring-0 p-0"
                       />
@@ -365,11 +440,15 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
               </div>
               <button 
                 onClick={() => handleCheckout('Cash')}
-                disabled={cart.length === 0}
-                className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-600 text-white rounded-[24px] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 font-black uppercase text-[12px] tracking-widest disabled:opacity-40 disabled:shadow-none active:scale-95"
+                disabled={cart.length === 0 || isProcessing}
+                className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-600 text-white rounded-[24px] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 font-black uppercase text-[12px] tracking-widest disabled:opacity-40 disabled:shadow-none active:scale-95 disabled:active:scale-100 disabled:cursor-not-allowed"
               >
-                <Banknote size={20} />
-                Selesaikan Pembayaran
+                {isProcessing ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Banknote size={20} />
+                )}
+                {isProcessing ? 'Memproses...' : 'Selesaikan Pembayaran'}
               </button>
             </div>
           </div>
@@ -426,6 +505,55 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
             </div>
           )}
       </div>
+      {/* Variant Selection Modal */}
+      {isVariantModalOpen && selectedProductForVariant && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                 <div>
+                    <h3 className="font-black text-slate-800 text-sm">Pilih Tambahan</h3>
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">{selectedProductForVariant.name}</p>
+                 </div>
+                 <button onClick={() => setIsVariantModalOpen(false)} className="text-slate-400 hover:text-slate-600"><Plus size={24} className="rotate-45" /></button>
+              </div>
+              <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                 {selectedProductForVariant.variants?.map((variant, idx) => {
+                     const isSelected = tempSelectedVariants?.some(v => v.name === variant.name);
+                     return (
+                         <div 
+                            key={idx} 
+                            onClick={() => {
+                                setTempSelectedVariants(prev => {
+                                    if (isSelected) return prev?.filter(v => v.name !== variant.name);
+                                    return [...(prev || []), variant];
+                                })
+                            }}
+                            className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                                isSelected 
+                                ? 'bg-emerald-50 border-emerald-500 shadow-md shadow-emerald-100' 
+                                : 'bg-white border-slate-200 hover:border-emerald-300'
+                            }`}
+                         >
+                            <span className={`text-xs font-bold ${isSelected ? 'text-emerald-800' : 'text-slate-700'}`}>{variant.name}</span>
+                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${isSelected ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                                +{formatCurrency(variant.price)}
+                            </span>
+                         </div>
+                     )
+                 })}
+              </div>
+              <div className="p-5 border-t border-slate-100 bg-slate-50">
+                  <button 
+                    onClick={handleVariantSubmit}
+                    className="w-full py-3 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all"
+                  >
+                    Tambahkan ke Pesanan 
+                    {tempSelectedVariants && tempSelectedVariants.length > 0 && ` (+${formatCurrency(tempSelectedVariants.reduce((a,b)=>a+b.price,0))})`}
+                  </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

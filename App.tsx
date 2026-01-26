@@ -76,7 +76,7 @@ const App: React.FC = () => {
         if (metadataBranchId && data.find(a => a.id === metadataBranchId)) {
             setActiveAccountId(metadataBranchId);
         } else {
-            const savedId = localStorage.getItem('toko_amanah_active_account_id');
+            const savedId = sessionStorage.getItem('toko_amanah_active_account_id');
             if (savedId && data.find(a => a.id === savedId)) {
                 setActiveAccountId(savedId);
             } else if (data.length > 0) {
@@ -115,7 +115,7 @@ const App: React.FC = () => {
   // Persist Active Account Change
   useEffect(() => {
     if (activeAccountId) {
-        localStorage.setItem('toko_amanah_active_account_id', activeAccountId);
+        sessionStorage.setItem('toko_amanah_active_account_id', activeAccountId);
     }
   }, [activeAccountId]);
 
@@ -217,7 +217,7 @@ const App: React.FC = () => {
          .from('transactions')
         .select(`
           *,
-          items:transaction_items(
+          items:transaction_items!inner(
             *,
             product:products(name, category, min_stock, stock)
           )
@@ -244,7 +244,8 @@ const App: React.FC = () => {
              name: i.product?.name || 'Unknown Product',
              category: i.product?.category || 'Uncategorized',
              stock: i.product?.stock || 0,
-             minStock: i.product?.min_stock || 0
+             minStock: i.product?.min_stock || 0,
+             selectedVariants: i.selected_variants || []
           }))
         }));
         
@@ -256,7 +257,7 @@ const App: React.FC = () => {
 
     // Subscribe to transactions for this branch
     const channel = supabase
-      .channel(`transactions_realtime`)
+      .channel(`transactions_realtime_${activeAccountId}`)
       .on(
         'postgres_changes', 
         { 
@@ -311,7 +312,8 @@ const App: React.FC = () => {
       product_id: item.id,
       quantity: item.quantity,
       price_at_sale: item.price,
-      cost_at_sale: item.cost
+      cost_at_sale: item.cost,
+      selected_variants: item.selectedVariants || []
     }));
 
     const { error: itemsError } = await supabase
@@ -323,23 +325,34 @@ const App: React.FC = () => {
     }
 
     // 3. Update Stock (One by one)
-    for (const item of transaction.items) {
-      const currentProduct = products.find(p => p.id === item.id);
+    // 3. Update Stock (Grouped by Product ID to prevent overwrite)
+    const stockUpdates: Record<string, number> = {};
+    transaction.items.forEach(item => {
+        stockUpdates[item.id] = (stockUpdates[item.id] || 0) + item.quantity;
+    });
+
+    for (const [productId, quantityToDeduct] of Object.entries(stockUpdates)) {
+      const currentProduct = products.find(p => p.id === productId);
       if (currentProduct) {
-        const newStock = currentProduct.stock - item.quantity;
+        const newStock = currentProduct.stock - quantityToDeduct;
         await supabase
           .from('products')
           .update({ stock: newStock })
-          .eq('id', item.id);
+          .eq('id', productId);
       }
     }
     
     // 4. Optimistic Update (Transactions only - safe from race conditions as it's an append)
-    setTransactions(prev => [{
-      ...transaction,
-      id: transData.id,
-      date: transData.date
-    }, ...prev]);
+    // 4. Optimistic Update with Deduping
+    // Remove any potential partial record from Realtime (same ID) before appending full record
+    setTransactions(prev => {
+        const filtered = prev.filter(t => t.id !== transData.id);
+        return [{
+          ...transaction,
+          id: transData.id,
+          date: transData.date
+        }, ...filtered];
+    });
     
     // We REMOVED optimistic setProducts here to prevent over-subtraction bugs.
     // The Realtime listener above will handle stock updates automatically 

@@ -16,7 +16,8 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState<Partial<Product>>({ name: '', sku: '', category: Category.MAKANAN, price: 0, cost: 0, stock: 0, minStock: 5 });
+  /* Added ProductVariant to state */
+  const [formData, setFormData] = useState<Partial<Product>>({ name: '', sku: '', category: Category.MAKANAN, price: 0, cost: 0, stock: 0, minStock: 5, variants: [] });
   
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -68,7 +69,8 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
       price: Number(formData.price),
       cost: Number(formData.cost),
       stock: Number(formData.stock),
-      min_stock: Number(formData.minStock)
+      min_stock: Number(formData.minStock),
+      variants: formData.variants || []
     };
 
     if (formData.id) {
@@ -132,7 +134,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
   }
 
   const resetForm = () => {
-      setFormData({ name: '', sku: '', category: Category.MAKANAN, price: 0, cost: 0, stock: 1, minStock: 5 });
+      setFormData({ name: '', sku: '', category: Category.MAKANAN, price: 0, cost: 0, stock: 1, minStock: 5, variants: [] });
   }
 
   const formatCurrency = (val: number) => 
@@ -329,19 +331,80 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Stok (Restock)</label>
-                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} onFocus={e => e.target.select()} />
+                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.stock?.toString()} onChange={e => setFormData({...formData, stock: e.target.value === '' ? ('' as any) : Number(e.target.value)})} onFocus={e => e.target.select()} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hrg Beli</label>
-                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.cost} onChange={e => setFormData({...formData, cost: Number(e.target.value)})} onFocus={e => e.target.select()} />
+                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.cost?.toString()} onChange={e => setFormData({...formData, cost: e.target.value === '' ? ('' as any) : Number(e.target.value)})} onFocus={e => e.target.select()} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hrg Jual</label>
-                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} onFocus={e => e.target.select()} />
+                  <input required type="number" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm" value={formData.price?.toString()} onChange={e => setFormData({...formData, price: e.target.value === '' ? ('' as any) : Number(e.target.value)})} onFocus={e => e.target.select()} />
                 </div>
               </div>
+
+              
+               {/* Variants Section */}
+               <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Varian / Tambahan (Opsional)</label>
+                    <button 
+                      type="button" 
+                      onClick={() => setFormData(p => ({ ...p, variants: [...(p.variants || []), { name: '', price: 0 }] }))}
+                      className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
+                    >
+                      + Tambah Varian
+                    </button>
+                  </div>
+                  
+                  {formData.variants && formData.variants.length > 0 ? (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                      {formData.variants.map((variant, idx) => (
+                        <div key={idx} className="flex gap-2 items-center animate-in slide-in-from-left-2 duration-300">
+                          <input 
+                            type="text" 
+                            placeholder="Nama (misal: Telur Dadar)" 
+                            className="flex-[2] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                            value={variant.name}
+                            onChange={(e) => {
+                              const newVariants = [...(formData.variants || [])];
+                              newVariants[idx].name = e.target.value;
+                              setFormData({...formData, variants: newVariants});
+                            }}
+                          />
+                          <input 
+                            type="number" 
+                            placeholder="0" 
+                            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                            value={variant.price === 0 ? '' : variant.price}
+                            onChange={(e) => {
+                              const newVariants = [...(formData.variants || [])];
+                              newVariants[idx].price = e.target.value === '' ? 0 : Number(e.target.value);
+                              setFormData({...formData, variants: newVariants});
+                            }}
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const newVariants = formData.variants?.filter((_, i) => i !== idx);
+                              setFormData({...formData, variants: newVariants});
+                            }} 
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <p className="text-[10px] text-slate-400 italic">Belum ada varian tambahan.</p>
+                    </div>
+                  )}
+               </div>
+
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs">Batal</button>
                 <button type="submit" className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-100">{formData.id ? 'Perbarui' : 'Simpan'}</button>

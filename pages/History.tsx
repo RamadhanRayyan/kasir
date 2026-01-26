@@ -141,8 +141,21 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
       doc.text(`${item.quantity} x ${formatCurrency(item.price)}`, margin, yPos);
       
       doc.setTextColor(0, 0, 0);
-      doc.text(formatCurrency(item.quantity * item.price), pageWidth - margin, yPos, { align: 'right' });
-      yPos += 6;
+      /* Calculate price with variants */
+      const itemPrice = item.price + (item.selectedVariants?.reduce((a, b) => a + b.price, 0) || 0);
+      doc.text(formatCurrency(itemPrice * item.quantity), pageWidth - margin, yPos, { align: 'right' });
+      yPos += 5;
+
+      /* Render Variants in PDF */
+      if (item.selectedVariants && item.selectedVariants.length > 0) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+        const variantsStr = "+ " + item.selectedVariants.map(v => v.name).join(", ");
+        doc.text(variantsStr, margin + 2, yPos - 1);
+        yPos += 4;
+      }
+      yPos += 2;
     });
 
     yPos -= 2;
@@ -339,10 +352,22 @@ const HistoryPage: React.FC<HistoryProps> = ({ transactions }) => {
                         {selectedTransaction.items.map(item => (
                             <div key={item.id} className="flex justify-between items-start text-xs group">
                                 <div className="flex flex-col">
-                                    <span className="font-bold text-slate-800 group-hover:text-emerald-700 transition-colors line-clamp-1">{item.name}</span>
-                                    <span className="text-[10px] text-slate-500 font-medium">{item.quantity} x {formatCurrency(item.price)}</span>
+                                    <span className="font-bold text-slate-800 group-hover:text-emerald-700 transition-colors line-clamp-2">
+
+                                      {item.name}
+                                    </span>
+                                    {item.selectedVariants && item.selectedVariants.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {item.selectedVariants.map((v, idx) => (
+                                          <span key={idx} className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                            + {v.name}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <span className="text-[10px] text-slate-500 font-medium">{item.quantity} x {formatCurrency(item.price + (item.selectedVariants?.reduce((a,b)=>a+b.price,0) || 0))}</span>
                                 </div>
-                                <span className="font-bold text-slate-900">{formatCurrency(item.price * item.quantity)}</span>
+                                <span className="font-bold text-slate-900">{formatCurrency((item.price + (item.selectedVariants?.reduce((a,b)=>a+b.price,0) || 0)) * item.quantity)}</span>
                             </div>
                         ))}
                      </div>
