@@ -142,7 +142,8 @@ const App: React.FC = () => {
           ...p,
           branch_id: p.branch_id, // include branch_id
           sku: p.sku, // include SKU
-          minStock: p.min_stock
+          minStock: p.min_stock,
+          variants: p.variants || []
         }));
         setProducts(mappedProducts);
       }
@@ -163,15 +164,15 @@ const App: React.FC = () => {
         (payload) => {
           if (isActive) {
             console.log('Product change received:', payload);
-            const p = payload.new as any || payload.old as any;
-            
-            // Branch filtering
-            if (p && (p.branch_id === activeAccountId)) {
-              if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-                const mappedP: Product = {
-                  ...payload.new as any,
-                  sku: (payload.new as any).sku,
-                  minStock: (payload.new as any).min_stock
+            // Branch filtering for INSERT/UPDATE
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const p = payload.new as any;
+              if (p.branch_id === activeAccountId) {
+                 const mappedP: Product = {
+                  ...p,
+                  sku: p.sku,
+                  minStock: p.min_stock,
+                  variants: p.variants || []
                 };
                 setProducts(current => {
                   const exists = current.find(item => item.id === mappedP.id);
@@ -181,11 +182,12 @@ const App: React.FC = () => {
                     return [...current, mappedP];
                   }
                 });
-              } else if (payload.eventType === 'DELETE') {
-                setProducts(current => current.filter(item => item.id !== payload.old.id));
-              } else {
-                fetchProducts();
               }
+            } else if (payload.eventType === 'DELETE') {
+               // For DELETE, payload.old only contains ID usually, so we can't check branch_id.
+               // It's safe to try deleting from local state by ID.
+               const oldId = payload.old.id;
+               setProducts(current => current.filter(item => item.id !== oldId));
             }
           }
         }
