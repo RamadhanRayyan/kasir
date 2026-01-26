@@ -20,7 +20,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: '1',
     name: 'Beras Premium 5kg',
-    category: Category.KEBUTUHAN_POKOK,
+    category: Category.MAKANAN,
     price: 75000,
     cost: 68000,
     stock: 25,
@@ -29,7 +29,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   {
     id: '2',
     name: 'Minyak Goreng 2L',
-    category: Category.KEBUTUHAN_POKOK,
+    category: Category.MAKANAN,
     price: 34000,
     cost: 30000,
     stock: 8,

@@ -167,7 +167,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
           productFrequency[pid] = { quantity: 0, revenue: 0, category: item.category || 'Uncategorized' };
         }
         productFrequency[pid].quantity += item.quantity;
-        productFrequency[pid].revenue += item.price * item.quantity;
+        productFrequency[pid].revenue += (item.price - item.cost) * item.quantity;
       });
     });
 
@@ -422,7 +422,7 @@ const Reports: React.FC<ReportsProps> = ({ transactions, products }) => {
                 <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest pl-4">Produk</th>
                 <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest pl-4">Kategori</th>
                 <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right pr-4">Terjual (Unit)</th>
-                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Potensi Omzet</th>
+                <th className="pb-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Potensi Gross Profit</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
