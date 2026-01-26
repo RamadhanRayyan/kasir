@@ -97,7 +97,12 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
         .select();
 
         if (error) {
-            alert('Error adding product: ' + error.message);
+            console.error("Error adding product:", error);
+            if (error.message && error.message.includes('variants')) {
+                 alert('Gagal: Kolom "variants" tidak ditemukan di database. Mohon jalankan script update database.');
+            } else {
+                 alert('Gagal menambahkan produk: ' + error.message);
+            }
         } else if (data) {
             const mappedProduct: Product = {
                 ...data[0],
