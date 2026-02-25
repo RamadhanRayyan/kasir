@@ -271,10 +271,10 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
   };
 
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-4 lg:gap-8 relative max-w-[1800px] mx-auto">
+    <div className="h-full flex flex-col md:flex-row gap-4 md:gap-6 relative max-w-[1800px] mx-auto">
       {/* Product List Section & Cart - Hide on Print */}
       <div className="contents">
-          <div className="flex-1 flex flex-col gap-4 lg:gap-5 overflow-hidden">
+          <div className="flex-1 flex flex-col gap-4 md:gap-5 overflow-hidden">
             {/* Responsive Filter Header */}
             <div className="bg-white p-3 sm:p-4 rounded-4xl sm:rounded-3xl border border-slate-200 flex flex-col gap-4 shadow-sm shadow-slate-100/50 shrink-0">
               <div className="relative">
@@ -315,7 +315,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
             </div>
 
             {/* Product Grid */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 pb-40 lg:pb-24 pr-2 items-start content-start custom-scrollbar">
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5 pb-40 md:pb-6 pr-2 items-start content-start custom-scrollbar">
               {filteredProducts.map(product => (
                 <button 
                   key={product.id}
@@ -362,8 +362,8 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
 
           {/* Cart Drawer & Sidebar - Optimized for Tablet */}
             <div className={`
-            fixed lg:static inset-x-0 bottom-0 z-50 bg-white lg:bg-white border-t lg:border border-slate-200 lg:rounded-[40px] shadow-2xl lg:shadow-xl lg:shadow-slate-200/50 flex flex-col overflow-hidden transition-all duration-500 ease-out
-            ${isMobileCartVisible ? 'h-[85vh] translate-y-0 rounded-t-[40px]' : 'h-0 translate-y-1/2 lg:h-full lg:translate-y-0 lg:w-80 xl:w-[400px]'}
+            fixed md:static inset-x-0 bottom-0 z-50 bg-white md:bg-white border-t md:border border-slate-200 md:rounded-[40px] shadow-2xl md:shadow-xl md:shadow-slate-200/50 flex flex-col overflow-hidden transition-all duration-500 ease-out
+            ${isMobileCartVisible ? 'h-[85vh] translate-y-0 rounded-t-[40px]' : 'h-0 translate-y-1/2 md:h-full md:translate-y-0 md:w-80 xl:w-[400px]'}
           `}>
             <div className="p-5 sm:p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
               <h3 className="font-black text-slate-800 flex items-center gap-3 text-sm xl:text-base uppercase tracking-widest">
@@ -371,8 +371,10 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                 Keranjang <span className="bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px]">{cart.reduce((a,b)=>a+b.quantity, 0)}</span>
               </h3>
               <div className="flex items-center gap-4">
-                <button onClick={() => setCart([])} className="text-[10px] text-red-500 font-black uppercase tracking-widest hover:text-red-600 transition-colors">Clear</button>
-                <button className="lg:hidden p-2 bg-slate-100 text-slate-400 rounded-2xl" onClick={() => setIsMobileCartVisible(false)}><ChevronDown size={24} /></button>
+                <button onClick={() => {
+                  if (cart.length > 0 && confirm('Hapus semua item?')) setCart([]);
+                }} className="text-[10px] text-red-500 font-black uppercase tracking-widest hover:text-red-600 transition-colors">Clear</button>
+                <button className="md:hidden p-2 bg-slate-100 text-slate-400 rounded-2xl" onClick={() => setIsMobileCartVisible(false)}><ChevronDown size={24} /></button>
               </div>
             </div>
 
@@ -480,7 +482,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
           {!isMobileCartVisible && (
             <button 
               onClick={() => setIsMobileCartVisible(true)}
-              className="lg:hidden fixed bottom-8 right-8 z-50 w-16 h-16 bg-emerald-600 text-white rounded-[32px] shadow-2xl flex items-center justify-center animate-bounce shadow-emerald-400/30"
+              className="md:hidden fixed bottom-8 right-8 z-50 w-16 h-16 bg-emerald-600 text-white rounded-[32px] shadow-2xl flex items-center justify-center animate-bounce shadow-emerald-400/30"
             >
               <ShoppingCart size={28} />
               {cart.length > 0 && (
