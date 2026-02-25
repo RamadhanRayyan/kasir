@@ -63,8 +63,33 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.SUPER_ADMIN);
   const [metadataBranchId, setMetadataBranchId] = useState<string | undefined>();
+  const [session, setSession] = useState<any>(null);
 
-  // 1. Fetch Accounts (Branches) on Mount
+  // Handle Auth Changes at Top Level
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        const role = session.user.user_metadata?.role as UserRole || UserRole.SUPER_ADMIN;
+        const branchId = session.user.user_metadata?.branch_id;
+        setUserRole(role);
+        setMetadataBranchId(branchId);
+      } else {
+        setUserRole(UserRole.SUPER_ADMIN);
+        setMetadataBranchId(undefined);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuthFetch = React.useCallback((role: UserRole, branchId?: string) => {
+    // This is now handled by the top-level listener, but we keep it for RequireAuth compatibility
+    setUserRole(role);
+    setMetadataBranchId(branchId);
+  }, []);
+
+  // 1. Fetch Accounts (Branches) on Mount or Session Change
   useEffect(() => {
     const fetchAccounts = async () => {
       const { data, error } = await supabase.from('accounts').select('*').order('created_at', { ascending: true });
@@ -72,19 +97,21 @@ const App: React.FC = () => {
       if (data && data.length > 0) {
         setAccounts(data);
         
-        // Priority: Metadata > Local Storage > First item
-        if (metadataBranchId && data.find(a => a.id === metadataBranchId)) {
+        // Priority: Metadata (only for kasir) > Local Storage > First item
+        if (userRole === UserRole.KASIR && metadataBranchId && data.find(a => a.id === metadataBranchId)) {
             setActiveAccountId(metadataBranchId);
         } else {
             const savedId = sessionStorage.getItem('toko_amanah_active_account_id');
-            if (savedId && data.find(a => a.id === savedId)) {
-                setActiveAccountId(savedId);
-            } else if (data.length > 0) {
+            const foundSaved = savedId ? data.find(a => a.id === savedId) : null;
+            
+            if (foundSaved) {
+                setActiveAccountId(foundSaved.id);
+            } else {
                 setActiveAccountId(data[0].id);
             }
         }
-      } else {
-        // Init default account if none exists (First Run)
+      } else if (!error) {
+        // Init default account logic if table empty
         const defaultAccount = { name: 'Toko Amanah', address: 'Pusat', phone: '-' };
         const { data: newData } = await supabase.from('accounts').insert([defaultAccount]).select().single();
         if (newData) {
@@ -95,19 +122,21 @@ const App: React.FC = () => {
       setIsLoading(false);
     };
     
-    fetchAccounts();
-  }, [metadataBranchId]);
+    // Use a short timeout to ensure Auth session is fully set in client headers
+    const timer = setTimeout(fetchAccounts, 150);
+    return () => clearTimeout(timer);
+  }, [session?.user?.id, userRole]); // Trigger on user change or role change
 
-  // 1b. Reactive Branch Selection (Crucial for login redirect)
+  // 1b. Reactive Branch Selection - ONLY FOR KASIR
+  // Super Admin should not be forced so they can switch branches freely
   useEffect(() => {
-    if (metadataBranchId && accounts.length > 0) {
+    if (userRole === UserRole.KASIR && metadataBranchId && accounts.length > 0) {
       const targetAccount = accounts.find(a => a.id === metadataBranchId);
       if (targetAccount) {
-        console.log('Reactively switching to branch from metadata:', targetAccount.name);
         setActiveAccountId(metadataBranchId);
       }
     }
-  }, [metadataBranchId, accounts]);
+  }, [metadataBranchId, accounts, userRole]);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -125,23 +154,19 @@ const App: React.FC = () => {
     
     let isActive = true;
 
-    // CLEAR STATE immediately to prevent showing old branch data during loading
-    setProducts([]); 
-    
     const fetchProducts = async () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('branch_id', activeAccountId); // Filter by Branch
+        .eq('branch_id', activeAccountId);
       
       if (error) {
         console.error('Error fetching products:', error);
       } else if (data && isActive) {
-        // Map keys matches DB columns
         const mappedProducts: Product[] = data.map((p: any) => ({
           ...p,
-          branch_id: p.branch_id, // include branch_id
-          sku: p.sku, // include SKU
+          branch_id: p.branch_id,
+          sku: p.sku,
           minStock: p.min_stock,
           variants: p.variants || []
         }));
@@ -151,9 +176,9 @@ const App: React.FC = () => {
     
     fetchProducts();
     
-    // Subscribe to changes for this branch
+    // Subscribe to changes for this SPECIFIC branch with unique channel
     const channel = supabase
-      .channel(`products_realtime`)
+      .channel(`products_realtime_${activeAccountId}`)
       .on(
         'postgres_changes', 
         { 
@@ -209,9 +234,6 @@ const App: React.FC = () => {
 
      let isActive = true;
 
-     // CLEAR STATE immediately
-     setTransactions([]);
-     
      const fetchTransactions = async () => {
       if (!isActive) return;
 
@@ -224,7 +246,7 @@ const App: React.FC = () => {
             product:products(name, category, min_stock, stock)
           )
         `)
-        .eq('branch_id', activeAccountId) // Filter by Branch
+        .eq('branch_id', activeAccountId)
         .order('date', { ascending: false });
 
       if (!isActive) return;
@@ -384,10 +406,7 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login />} />
         
         <Route element={
-          <RequireAuth onAuthFetch={(role, branchId) => {
-            setUserRole(role);
-            if (branchId) setMetadataBranchId(branchId);
-          }}>
+          <RequireAuth onAuthFetch={handleAuthFetch}>
             {userRole === UserRole.SUPER_ADMIN ? (
               <MainLayout 
                 activeAccount={activeAccount} 
