@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
-body {
+html, body {
   font-family: "Inter", sans-serif;
+  overscroll-behavior-y: contain;
+  height: 100%;
 }
 
 @media print {

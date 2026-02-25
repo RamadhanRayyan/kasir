@@ -438,18 +438,41 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                 <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Total Bayar</span>
                 <span className="text-2xl font-black text-emerald-700 tracking-tight">{formatCurrency(total)}</span>
               </div>
-              <button 
-                onClick={() => handleCheckout('Cash')}
-                disabled={cart.length === 0 || isProcessing}
-                className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-600 text-white rounded-[24px] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 font-black uppercase text-[12px] tracking-widest disabled:opacity-40 disabled:shadow-none active:scale-95 disabled:active:scale-100 disabled:cursor-not-allowed"
-              >
-                {isProcessing ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Banknote size={20} />
-                )}
-                {isProcessing ? 'Memproses...' : 'Selesaikan Pembayaran'}
-              </button>
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsMobileCartVisible(false)}
+                    className="flex-1 py-4 bg-slate-200 text-slate-700 rounded-[20px] hover:bg-slate-300 transition-all font-black uppercase text-[11px] tracking-widest active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    Lanjut Pilih
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if(cart.length > 0 && confirm('Kosongkan keranjang?')) {
+                        setCart([]);
+                        setIsMobileCartVisible(false);
+                      } else if (cart.length === 0) {
+                        setIsMobileCartVisible(false);
+                      }
+                    }}
+                    className="flex-1 py-4 bg-red-50 text-red-500 rounded-[20px] hover:bg-red-100 transition-all font-black uppercase text-[11px] tracking-widest active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    Batal
+                  </button>
+                </div>
+                <button 
+                  onClick={() => handleCheckout('Cash')}
+                  disabled={cart.length === 0 || isProcessing}
+                  className="w-full flex items-center justify-center gap-3 py-5 bg-emerald-600 text-white rounded-[24px] hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 font-black uppercase text-[13px] tracking-widest disabled:opacity-40 disabled:shadow-none active:scale-95 disabled:active:scale-100 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Banknote size={20} />
+                  )}
+                  {isProcessing ? 'Memproses...' : 'Selesaikan Pembayaran'}
+                </button>
+              </div>
             </div>
           </div>
 
