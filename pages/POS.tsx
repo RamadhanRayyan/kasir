@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { Search, Plus, Minus, Trash2, ShoppingCart, Banknote, Download, CheckCircle2, Box, ChevronDown, LayoutGrid } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { Product, CartItem, Transaction, Category, CooperativeAccount } from '../types';
+import GlobalModal from '../components/GlobalModal';
+
 
 interface POSProps {
   products: Product[];
@@ -24,6 +26,37 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
 
   const [isMobileCartVisible, setIsMobileCartVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'alert' | 'confirm';
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    type: 'alert',
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setModal({ isOpen: true, type: 'alert', title, message, onConfirm: () => setModal(prev => ({ ...prev, isOpen: false })) });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirmAction: () => void) => {
+    setModal({ 
+      isOpen: true, 
+      type: 'confirm', 
+      title, 
+      message, 
+      onConfirm: () => {
+        onConfirmAction();
+        setModal(prev => ({ ...prev, isOpen: false }));
+      } 
+    });
+  };
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
@@ -132,7 +165,7 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
       setIsMobileCartVisible(false);
     } catch (error) {
       console.error("Transaction failed", error);
-      alert("Transaksi gagal, silakan coba lagi.");
+      showAlert("Transaksi Gagal", "Terjadi kesalahan saat memproses transaksi. Silakan coba lagi.");
     } finally {
       setIsProcessing(false);
     }
@@ -372,7 +405,9 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
               </h3>
               <div className="flex items-center gap-4">
                 <button onClick={() => {
-                  if (cart.length > 0 && confirm('Hapus semua item?')) setCart([]);
+                  if (cart.length > 0) {
+                    showConfirm('Kosongkan Keranjang', 'Apakah Anda yakin ingin menghapus semua item?', () => setCart([]));
+                  }
                 }} className="text-[10px] text-red-500 font-black uppercase tracking-widest hover:text-red-600 transition-colors">Clear</button>
                 <button className="md:hidden p-2 bg-slate-100 text-slate-400 rounded-2xl" onClick={() => setIsMobileCartVisible(false)}><ChevronDown size={24} /></button>
               </div>
@@ -450,9 +485,11 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
                   </button>
                   <button 
                     onClick={() => {
-                      if(cart.length > 0 && confirm('Kosongkan keranjang?')) {
-                        setCart([]);
-                        setIsMobileCartVisible(false);
+                      if(cart.length > 0) {
+                        showConfirm('Batal Transaksi', 'Apakah Anda yakin ingin menggugurkan pesanan ini?', () => {
+                          setCart([]);
+                          setIsMobileCartVisible(false);
+                        });
                       } else if (cart.length === 0) {
                         setIsMobileCartVisible(false);
                       }
@@ -579,6 +616,14 @@ const POS: React.FC<POSProps> = ({ products, onCompleteTransaction, activeAccoun
            </div>
         </div>
       )}
+      <GlobalModal 
+        isOpen={modal.isOpen}
+        type={modal.type}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Building2, Save, Plus, Trash2, Check, AlertTriangle, Loader2, Copy } from 'lucide-react';
 import { CooperativeAccount } from '../types';
 import { supabase } from '../lib/supabaseClient';
+import GlobalModal from '../components/GlobalModal';
+
 
 interface SettingsProps {
   accounts: CooperativeAccount[];
@@ -21,6 +23,37 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
   const [securityAction, setSecurityAction] = useState<{ type: 'SWITCH_BRANCH' | 'RESET_DATA' | 'ADD_BRANCH', id?: string } | null>(null);
   const ADMIN_PASSWORD = 'nurussunnah2026';
 
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'alert' | 'confirm';
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    type: 'alert',
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setModal({ isOpen: true, type: 'alert', title, message, onConfirm: () => setModal(prev => ({ ...prev, isOpen: false })) });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirmAction: () => void) => {
+    setModal({ 
+      isOpen: true, 
+      type: 'confirm', 
+      title, 
+      message, 
+      onConfirm: () => {
+        onConfirmAction();
+        setModal(prev => ({ ...prev, isOpen: false }));
+      } 
+    });
+  };
+
   const handleSecurityCheck = (type: 'SWITCH_BRANCH' | 'RESET_DATA' | 'ADD_BRANCH', id?: string) => {
     setSecurityAction({ type, id });
     setIsSecurityModalOpen(true);
@@ -39,28 +72,32 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
       setPasswordInput('');
       setSecurityAction(null);
     } else {
-      alert('Password salah!');
+      showAlert('Password Salah', 'Kata sandi yang Anda masukkan tidak cocok.');
     }
   };
 
   const handleResetData = async () => {
-    if (!confirm("Peringatan Terakhir: Semua data produk dan transaksi di cabang ini akan dihapus secara permanen. Lanjutkan?")) return;
-    
-    setIsLoading(true);
-    try {
-        const { error: prodError } = await supabase.from('products').delete().eq('branch_id', activeAccountId);
-        if (prodError) throw prodError;
-        
-        const { error: transError } = await supabase.from('transactions').delete().eq('branch_id', activeAccountId);
-        if (transError) throw transError;
+    showConfirm(
+      'Peringatan Reset Data',
+      'Peringatan Terakhir: Semua data produk dan transaksi di cabang ini akan dihapus secara permanen. Lanjutkan?',
+      async () => {
+        setIsLoading(true);
+        try {
+            const { error: prodError } = await supabase.from('products').delete().eq('branch_id', activeAccountId);
+            if (prodError) throw prodError;
+            
+            const { error: transError } = await supabase.from('transactions').delete().eq('branch_id', activeAccountId);
+            if (transError) throw transError;
 
-        alert("Data cabang berhasil direset!");
-        window.location.reload();
-    } catch (error: any) {
-        alert("Gagal reset data: " + error.message);
-    } finally {
-        setIsLoading(false);
-    }
+            showAlert("Berhasil", "Data cabang berhasil direset!");
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (error: any) {
+            showAlert("Gagal", "Gagal reset data: " + error.message);
+        } finally {
+            setIsLoading(false);
+        }
+      }
+    );
   };
 
   const startEditing = (account: CooperativeAccount) => {
@@ -87,7 +124,7 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
         setAccounts(newAccounts);
         setEditingId(null);
     } catch (error: any) {
-        alert('Gagal menyimpan perubahan: ' + error.message);
+        showAlert('Gagal Menyimpan', 'Gagal menyimpan perubahan: ' + error.message);
     } finally {
         setIsLoading(false);
     }
@@ -114,7 +151,7 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
              startEditing(data);
         }
     } catch (error: any) {
-        alert('Gagal menambah cabang: ' + error.message);
+        showAlert('Gagal Menambah', 'Gagal menambah cabang: ' + error.message);
     } finally {
         setIsLoading(false);
     }
@@ -122,21 +159,26 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
   
   const deleteAccount = async (id: string) => {
       if (id === activeAccountId) {
-          alert("Tidak bisa menghapus cabang yang sedang aktif!");
+          showAlert("Aksi Ditolak", "Tidak bisa menghapus cabang yang sedang aktif!");
           return;
       }
-      if (!confirm("Apakah Anda yakin ingin menghapus cabang ini? Semua data produk dan transaksi di cabang ini akan ikut terhapus!")) return;
-
-      setIsLoading(true);
-      try {
-          const { error } = await supabase.from('accounts').delete().eq('id', id);
-          if (error) throw error;
-          setAccounts(accounts.filter(a => a.id !== id));
-      } catch (error: any) {
-          alert('Gagal menghapus cabang: ' + error.message);
-      } finally {
-          setIsLoading(false);
-      }
+      
+      showConfirm(
+        'Hapus Cabang',
+        'Apakah Anda yakin ingin menghapus cabang ini? Semua data produk dan transaksi di cabang ini akan ikut terhapus!',
+        async () => {
+          setIsLoading(true);
+          try {
+              const { error } = await supabase.from('accounts').delete().eq('id', id);
+              if (error) throw error;
+              setAccounts(accounts.filter(a => a.id !== id));
+          } catch (error: any) {
+              showAlert('Gagal Menghapus', 'Gagal menghapus cabang: ' + error.message);
+          } finally {
+              setIsLoading(false);
+          }
+        }
+      );
   };
 
   return (
@@ -252,7 +294,7 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
                         <button 
                           onClick={() => {
                             navigator.clipboard.writeText(account.id);
-                            alert('ID Cabang disalin!');
+                            showAlert('Tersalin', 'ID Cabang berhasil disalin ke clipboard!');
                           }}
                           className="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
                           title="Salin ID Cabang"
@@ -359,6 +401,14 @@ const Settings: React.FC<SettingsProps> = ({ accounts, activeAccountId, setActiv
           </div>
         </div>
       )}
+      <GlobalModal 
+        isOpen={modal.isOpen}
+        type={modal.type}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

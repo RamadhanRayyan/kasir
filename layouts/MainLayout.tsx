@@ -21,6 +21,8 @@ import {
 import { CooperativeAccount, Product } from '../types';
 
 import { supabase } from '../lib/supabaseClient';
+import GlobalModal from '../components/GlobalModal';
+
 
 interface MainLayoutProps {
   activeAccount: CooperativeAccount;
@@ -45,6 +47,37 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'alert' | 'confirm';
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    type: 'alert',
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setModal({ isOpen: true, type: 'alert', title, message, onConfirm: () => setModal(prev => ({ ...prev, isOpen: false })) });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setModal({ 
+      isOpen: true, 
+      type: 'confirm', 
+      title, 
+      message, 
+      onConfirm: () => {
+        onConfirm();
+        setModal(prev => ({ ...prev, isOpen: false }));
+      } 
+    });
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -58,11 +91,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
-    if (confirm('Apakah Anda yakin ingin keluar?')) {
-      await supabase.auth.signOut();
-      navigate('/login');
-    }
+  const handleLogout = () => {
+    showConfirm(
+      'Konfirmasi Keluar',
+      'Apakah Anda yakin ingin keluar dari sistem?',
+      async () => {
+        await supabase.auth.signOut();
+        navigate('/login');
+      }
+    );
   };
 
   return (
@@ -234,6 +271,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           <Outlet />
         </div>
       </main>
+      <GlobalModal 
+        isOpen={modal.isOpen}
+        type={modal.type}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

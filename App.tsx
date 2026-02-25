@@ -326,8 +326,7 @@ const App: React.FC = () => {
       .single();
 
     if (transError || !transData) {
-      alert('Transaction failed: ' + transError?.message);
-      return;
+      throw new Error(transError?.message || 'Transaction failed');
     }
 
     // 2. Insert Items

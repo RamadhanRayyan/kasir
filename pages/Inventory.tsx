@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Package, Plus, Search, Filter, Edit2, Trash2, ChevronRight, AlertTriangle, Box, X } from 'lucide-react';
 import { Product, Category } from '../types';
 import { supabase } from '../lib/supabaseClient';
+import GlobalModal from '../components/GlobalModal';
+
 
 interface InventoryProps {
   products: Product[];
@@ -23,6 +25,38 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<Category | 'All'>('All');
   const [filterStockStatus, setFilterStockStatus] = useState<'All' | 'Zero' | 'Low'>('All');
+
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    type: 'alert' | 'confirm';
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    type: 'alert',
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setModal({ isOpen: true, type: 'alert', title, message, onConfirm: () => setModal(prev => ({ ...prev, isOpen: false })) });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirmAction: () => void) => {
+    setModal({ 
+      isOpen: true, 
+      type: 'confirm', 
+      title, 
+      message, 
+      onConfirm: () => {
+        onConfirmAction();
+        setModal(prev => ({ ...prev, isOpen: false }));
+      } 
+    });
+  };
+
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -55,7 +89,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
 
     // Validation: New products must have stock > 0
     if (!formData.id && Number(formData.stock) <= 0) {
-      alert('Stok awal barang baru harus lebih dari 0!');
+      showAlert('Input Tidak Valid', 'Stok awal barang baru harus lebih dari 0!');
       return;
     }
 
@@ -81,7 +115,7 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
             .eq('id', formData.id);
 
         if (error) {
-            alert('Error updating product: ' + error.message);
+            showAlert('Gagal Memperbarui', 'Gagal memperbarui produk: ' + error.message);
         } else {
              // App.tsx uses realtime so no need to manual update setProducts if subscribed
              // But for responsiveness, we can update local state
@@ -99,9 +133,9 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
         if (error) {
             console.error("Error adding product:", error);
             if (error.message && error.message.includes('variants')) {
-                 alert('Gagal: Kolom "variants" tidak ditemukan di database. Mohon jalankan script update database.');
+                 showAlert('Database Update Diperlukan', 'Gagal: Kolom "variants" tidak ditemukan di database. Mohon jalankan script update database.');
             } else {
-                 alert('Gagal menambahkan produk: ' + error.message);
+                 showAlert('Gagal Menambah', 'Gagal menambahkan produk: ' + error.message);
             }
         } else if (data) {
             const mappedProduct: Product = {
@@ -118,19 +152,23 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
     setIsLoading(false);
   };
 
-  const handleDeleteProduct = async (id: string) => {
-      if (!confirm('Apakah Anda yakin ingin menghapus produk ini?')) return;
-      
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-        
-      if (error) {
-          alert('Error deleting product: ' + error.message);
-      } else {
-          setProducts(products.filter(p => p.id !== id));
-      }
+  const handleDeleteProduct = (id: string) => {
+      showConfirm(
+        'Hapus Produk',
+        'Apakah Anda yakin ingin menghapus produk ini? Tindakan ini tidak dapat dibatalkan.',
+        async () => {
+          const { error } = await supabase
+            .from('products')
+            .delete()
+            .eq('id', id);
+            
+          if (error) {
+              showAlert('Gagal Menghapus', 'Terjadi kesalahan: ' + error.message);
+          } else {
+              setProducts(products.filter(p => p.id !== id));
+          }
+        }
+      );
   }
 
   const openEditModal = (product: Product) => {
@@ -418,6 +456,14 @@ const Inventory: React.FC<InventoryProps> = ({ products, setProducts, activeAcco
           </div>
         </div>
       )}
+      <GlobalModal 
+        isOpen={modal.isOpen}
+        type={modal.type}
+        title={modal.title}
+        message={modal.message}
+        onConfirm={modal.onConfirm}
+        onCancel={() => setModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
